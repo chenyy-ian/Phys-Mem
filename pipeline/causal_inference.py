@@ -704,10 +704,11 @@ def schedule_stableworld_window_tri_9(
             intent_state=intent_state_for_policy,
             intent_confidence=intent_confidence_for_policy,
         )
+        new_ids = memory_buffer.apply_strategy(decision)
     else:
         scheduler = MemoryScheduler(sim_threshold=sim_threshold)
         decision = scheduler.schedule(memory_buffer, similarity_result)
-    new_ids = memory_buffer.apply_decision(decision)
+        new_ids = memory_buffer.apply_decision(decision)
     min_sim = similarity_result.similarity
     orb_runtime_ms = float(similarity_result.debug.get("orb_runtime_ms", 0.0))
     lightglue_runtime_ms = float(similarity_result.debug.get("lightglue_runtime_ms", 0.0))

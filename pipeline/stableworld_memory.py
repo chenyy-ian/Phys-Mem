@@ -18,6 +18,11 @@ class MemoryDecision:
     unified_memory_score: float | None = None
     geometry_confidence: float | None = None
     intent_state: str | None = None
+    keep_ids: List[int] = field(default_factory=list)
+    delete_ids: List[int] = field(default_factory=list)
+    refresh_ids: List[int] = field(default_factory=list)
+    insert_count: int = 3
+    kv_policy: str = "legacy"
 
     @property
     def delete_frame(self) -> int:
@@ -71,6 +76,18 @@ class MemoryBuffer:
         else:
             kept = self.keep(self.window_ids[3:])
         new_ids = self.insert(kept, count=3)
+        return self.replace(new_ids)
+
+    def apply_strategy(self, decision: MemoryDecision) -> list[int]:
+        keep_ids = decision.keep_ids or [frame_id for frame_id in self.window_ids if frame_id not in set(decision.delete_ids)]
+        keep_set = set(keep_ids)
+        delete_set = set(decision.delete_ids)
+        kept = [frame_id for frame_id in self.window_ids if frame_id in keep_set and frame_id not in delete_set]
+        new_ids = self.insert(kept, count=decision.insert_count)
+        if len(new_ids) > len(self.window_ids):
+            new_ids = new_ids[-len(self.window_ids):]
+        if len(new_ids) < len(self.window_ids):
+            new_ids = self.insert(new_ids, count=len(self.window_ids) - len(new_ids))
         return self.replace(new_ids)
 
 
@@ -184,15 +201,7 @@ class PhysMemScheduler(MemoryScheduler):
             "intent_confidence": float(intent_confidence),
         }
         memory_state, transition = self.state_machine.transition(context)
-        evict_middle_by_state = {
-            "KEEP": 1,
-            "REFRESH": 1,
-            "INSERT": 0,
-            "REPLACE": 0,
-            "EVICT": 0,
-        }
-        evict_middle = evict_middle_by_state[memory_state]
-        delete_range = memory_buffer.delete(3, 6) if evict_middle else memory_buffer.delete(0, 3)
+        keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state)
         decision_name = f"physmem_{memory_state.lower()}"
         return MemoryDecision(
             evict_middle=evict_middle,
@@ -207,4 +216,31 @@ class PhysMemScheduler(MemoryScheduler):
             unified_memory_score=score,
             geometry_confidence=float(geometry_confidence),
             intent_state=intent_state,
+            keep_ids=keep_ids,
+            delete_ids=delete_range,
+            refresh_ids=refresh_ids,
+            insert_count=insert_count,
+            kv_policy=kv_policy,
         )
+
+    def _strategy_plan(self, memory_buffer: MemoryBuffer, memory_state: str) -> tuple[list[int], list[int], list[int], int, str, int]:
+        ids = memory_buffer.snapshot()
+        if memory_state == "KEEP":
+            delete_ids = ids[3:6]
+            keep_ids = ids[:3] + ids[6:]
+            return keep_ids, delete_ids, [], 3, "preserve_anchor", 1
+        if memory_state == "REFRESH":
+            delete_ids = [ids[2], ids[5]]
+            keep_ids = [frame_id for frame_id in ids if frame_id not in set(delete_ids)]
+            return keep_ids, delete_ids, delete_ids, 2, "refresh_uncertain", 1
+        if memory_state == "INSERT":
+            delete_ids = [ids[1], ids[3]]
+            keep_ids = [frame_id for frame_id in ids if frame_id not in set(delete_ids)]
+            return keep_ids, delete_ids, [], 2, "append_compact", 0
+        if memory_state == "EVICT":
+            keep_ids = ids[-2:]
+            delete_ids = ids[:-2]
+            return keep_ids, delete_ids, [], len(delete_ids), "hard_evict", 0
+        delete_ids = ids[:3]
+        keep_ids = ids[3:]
+        return keep_ids, delete_ids, [], 3, "replace_stale", 0
