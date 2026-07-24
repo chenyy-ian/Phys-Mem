@@ -1,0 +1,23 @@
+stage 5
+本阶段解决的科学问题：
+LightGlue 只看语义匹配置信度时，可能把“语义上匹配但空间漂移很大”的帧误认为稳定记忆。Spatial Penalty 引入匹配点位移，尝试区分 semantic consistency 和 spatial consistency。
+核心假设：
+稳定 memory 不仅需要高语义匹配，还需要匹配点的 2D 位移处于合理范围。平均位移越大，越可能对应 ghosting、texture drift、错误旧场景残留或大视角不适配。
+局限性：
+这个 penalty 仍是 2D 图像平面约束。真实相机运动、前进运动、尺度变化、透视变化会天然产生大位移，可能被误罚。它也不知道位移来自合理 3D 视差、物体运动，还是生成漂移。
+Reviewer 问为什么还需要 Depth：
+因为 2D displacement 不能区分“物理合理的大位移”和“生成错误导致的漂移”。Depth/3D 几何可以把像素运动解释为相机运动、视差、遮挡和场景结构变化，从而把 flat image matching 提升到 physical consistency。
+消融实验设计
+Alpha sweep：
+固定 seed/action/scene，比较 alpha=0, 0.0005, 0.001, 0.002, 0.005。指标看 ghosting、texture drift、memory replacement、VBench-Long temporal/background consistency。
+
+Semantic vs Spatial：
+同一 LightGlue 匹配结果下比较：
+semantic_similarity 决策 vs final_similarity 决策。验证 Spatial Penalty 是否减少旧纹理残留、重复纹理误保留和 scene ghosting。
+
+场景分组实验：
+低运动静态场景、重复纹理场景、大尺度前进场景、大视角转向场景分别统计。预期 penalty 在重复纹理/ghosting 上提升，在大尺度真实运动中可能失败。
+
+这一步最适合作为 LightGlue 到 Depth 的中间阶段：它证明“仅语义匹配不够，需要空间一致性”，同时也暴露“仅 2D 空间一致性不够，需要 3D/Depth 解释”。
+
+stage 6

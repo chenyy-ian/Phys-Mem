@@ -182,10 +182,12 @@ class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
         self,
         features: str = "superpoint",
         max_num_keypoints: int = 2048,
+        spatial_alpha: float = 0.0,
         device: str | None = None,
     ):
         self.features = features
         self.max_num_keypoints = max_num_keypoints
+        self.spatial_alpha = float(spatial_alpha)
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.extractor = None
         self.matcher = None
@@ -249,11 +251,28 @@ class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
                     "matching_heatmap": None,
                     "confidence_distribution": None,
                     "confidence_scores": [],
+                    "displacement_field": None,
+                    "motion_vector": None,
+                    "semantic_similarity": 0.0,
+                    "final_similarity": 0.0,
+                    "spatial_alpha": self.spatial_alpha,
+                    "average_displacement": 0.0,
+                    "median_displacement": 0.0,
+                    "maximum_displacement": 0.0,
                 },
             )
 
+        matched_keypoints0 = keypoints0[matches[:, 0]]
+        matched_keypoints1 = keypoints1[matches[:, 1]]
+        displacement = matched_keypoints1 - matched_keypoints0
+        displacement_norm = torch.linalg.norm(displacement, dim=1)
+
         confidence = float(scores.mean().item())
-        similarity = confidence
+        semantic_similarity = confidence
+        average_displacement = float(displacement_norm.mean().item())
+        median_displacement = float(displacement_norm.median().item())
+        maximum_displacement = float(displacement_norm.max().item())
+        final_similarity = float(max(0.0, semantic_similarity - self.spatial_alpha * average_displacement))
         runtime_ms = (time.perf_counter() - start_time) * 1000.0
 
         debug = {
@@ -261,15 +280,23 @@ class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
             "matching_points": matching_points,
             "confidence_scores": scores.numpy().astype(float).tolist(),
             "feature_backend": self.features,
+            "semantic_similarity": semantic_similarity,
+            "final_similarity": final_similarity,
+            "spatial_alpha": self.spatial_alpha,
+            "average_displacement": average_displacement,
+            "median_displacement": median_displacement,
+            "maximum_displacement": maximum_displacement,
             "match_image": None,
             "matching_heatmap": None,
             "confidence_distribution": None,
+            "displacement_field": None,
+            "motion_vector": None,
         }
         if return_debug:
             debug.update(self._build_visualizations(reference_frame, middle_frame, keypoints0, keypoints1, matches, scores))
 
         return SimilarityResult(
-            similarity=float(similarity),
+            similarity=float(final_similarity),
             confidence=float(confidence),
             matching_points=matching_points,
             debug=debug,
@@ -288,6 +315,8 @@ class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
         match_image[:h1, w0:w0 + w1] = cur_bgr
 
         heatmap = np.zeros((h1, w1), dtype=np.float32)
+        displacement_field = cur_bgr.copy()
+        motion_vector = np.zeros_like(cur_bgr) + 255
         score_np = scores.numpy()
         if len(score_np) > 0:
             denom = max(float(score_np.max() - score_np.min()), 1e-6)
@@ -308,6 +337,12 @@ class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
             x1 = int(np.clip(round(p1[0]), 0, w1 - 1))
             y1 = int(np.clip(round(p1[1]), 0, h1 - 1))
             heatmap[y1, x1] += float(scores[idx].item())
+            start_pt = (int(round(p0[0])), int(round(p0[1])))
+            end_pt = (int(round(p1[0])), int(round(p1[1])))
+            cv2.arrowedLine(displacement_field, start_pt, end_pt, color, 1, cv2.LINE_AA, tipLength=0.25)
+            cv2.circle(displacement_field, end_pt, 2, color, -1)
+            cv2.arrowedLine(motion_vector, start_pt, end_pt, color, 1, cv2.LINE_AA, tipLength=0.25)
+            cv2.circle(motion_vector, start_pt, 2, (80, 80, 80), -1)
 
         if heatmap.max() > 0:
             heatmap = heatmap / heatmap.max()
@@ -334,13 +369,15 @@ class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
             "match_image": match_image,
             "matching_heatmap": matching_heatmap,
             "confidence_distribution": hist,
+            "displacement_field": displacement_field,
+            "motion_vector": motion_vector,
         }
 
 
-def build_similarity_estimator(name: str = "orb") -> BaseSimilarityEstimator:
+def build_similarity_estimator(name: str = "orb", lightglue_spatial_alpha: float = 0.0) -> BaseSimilarityEstimator:
     normalized = (name or "orb").lower()
     if normalized == "orb":
         return ORBSimilarityEstimator()
     if normalized == "lightglue":
-        return LightGlueSimilarityEstimator()
+        return LightGlueSimilarityEstimator(spatial_alpha=lightglue_spatial_alpha)
     raise ValueError(f"Unknown similarity estimator: {name}")

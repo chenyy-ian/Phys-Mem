@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument("--stableworld_debug", action="store_true", help="Save StableWorld debug logs and ORB visualizations")
     parser.add_argument("--stableworld_debug_dir", type=str, default=None, help="Folder for StableWorld debug outputs")
     parser.add_argument("--similarity_estimator", type=str, default="orb", choices=["orb", "lightglue"], help="Similarity estimator used by StableWorld")
+    parser.add_argument("--lightglue_spatial_alpha", type=float, default=0.0, help="Spatial penalty alpha for LightGlue final similarity")
     args = parser.parse_args()
     return args
 
@@ -148,7 +149,8 @@ class InteractiveGameInference:
                 Threshold=self.args.Threshold,
                 debug_stableworld=self.args.stableworld_debug,
                 debug_output_dir=self.args.stableworld_debug_dir or os.path.join(self.args.output_folder, "stableworld_debug"),
-                similarity_estimator_name=self.args.similarity_estimator
+                similarity_estimator_name=self.args.similarity_estimator,
+                lightglue_spatial_alpha=self.args.lightglue_spatial_alpha
             )
 
         videos_tensor = torch.cat(videos, dim=1)

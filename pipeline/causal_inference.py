@@ -148,12 +148,16 @@ class StableWorldDebugLogger:
         self.matches_dir = os.path.join(output_dir, "orb_matches")
         self.heatmaps_dir = os.path.join(output_dir, "matching_heatmaps")
         self.confidence_dir = os.path.join(output_dir, "confidence_distributions")
+        self.displacement_dir = os.path.join(output_dir, "displacement_fields")
+        self.motion_vector_dir = os.path.join(output_dir, "motion_vectors")
         self.records = []
         self.events = []
         os.makedirs(self.frames_dir, exist_ok=True)
         os.makedirs(self.matches_dir, exist_ok=True)
         os.makedirs(self.heatmaps_dir, exist_ok=True)
         os.makedirs(self.confidence_dir, exist_ok=True)
+        os.makedirs(self.displacement_dir, exist_ok=True)
+        os.makedirs(self.motion_vector_dir, exist_ok=True)
 
     def log_event(self, frame_index: int, stage: str, detail: str):
         item = {
@@ -198,6 +202,12 @@ class StableWorldDebugLogger:
                     "lightglue_runtime_ms",
                     "runtime_ms",
                     "confidence",
+                    "semantic_similarity",
+                    "final_similarity",
+                    "spatial_alpha",
+                    "average_displacement",
+                    "median_displacement",
+                    "maximum_displacement",
                     "estimator",
                     "decision",
                     "window_before",
@@ -221,6 +231,11 @@ class StableWorldDebugLogger:
                     "average_lightglue_runtime_ms",
                     "average_runtime_ms",
                     "average_confidence",
+                    "average_semantic_similarity",
+                    "average_final_similarity",
+                    "average_displacement",
+                    "median_displacement",
+                    "maximum_displacement",
                 ],
             )
             writer.writeheader()
@@ -254,6 +269,11 @@ class StableWorldDebugLogger:
                 "average_lightglue_runtime_ms": float(np.mean([x["lightglue_runtime_ms"] for x in items])),
                 "average_runtime_ms": float(np.mean([x["runtime_ms"] for x in items])),
                 "average_confidence": float(np.mean([x["confidence"] for x in items])),
+                "average_semantic_similarity": float(np.mean([x["semantic_similarity"] for x in items])),
+                "average_final_similarity": float(np.mean([x["final_similarity"] for x in items])),
+                "average_displacement": float(np.mean([x["average_displacement"] for x in items])),
+                "median_displacement": float(np.median([x["median_displacement"] for x in items])),
+                "maximum_displacement": float(np.max([x["maximum_displacement"] for x in items])),
             })
         return rows
 
@@ -356,6 +376,7 @@ def decide_and_update_window_ids_tri_9(
     experiment_recorder: ExperimentRecorder | None = None,
     frame_index: int | None = None,
     similarity_estimator_name: str = "orb",
+    lightglue_spatial_alpha: float = 0.0,
 ) -> tuple[int, list, float]:
     return schedule_stableworld_window_tri_9(
         window_ids=window_ids,
@@ -366,6 +387,7 @@ def decide_and_update_window_ids_tri_9(
         experiment_recorder=experiment_recorder,
         frame_index=frame_index,
         similarity_estimator_name=similarity_estimator_name,
+        lightglue_spatial_alpha=lightglue_spatial_alpha,
     )
 
 
@@ -378,6 +400,7 @@ def schedule_stableworld_window_tri_9(
     experiment_recorder: ExperimentRecorder | None = None,
     frame_index: int | None = None,
     similarity_estimator_name: str = "orb",
+    lightglue_spatial_alpha: float = 0.0,
 ) -> tuple[int, list, float]:
     """
     StableWorld tri-9 scheduling through the refactored stack:
@@ -400,7 +423,10 @@ def schedule_stableworld_window_tri_9(
     img2 = get_decoded_frame_by_latent(videos, id2, sub=sub)
     img5 = get_decoded_frame_by_latent(videos, id5, sub=sub)
 
-    similarity_estimator = build_similarity_estimator(similarity_estimator_name)
+    similarity_estimator = build_similarity_estimator(
+        similarity_estimator_name,
+        lightglue_spatial_alpha=lightglue_spatial_alpha,
+    )
     similarity_result = similarity_estimator.compute_similarity(
         img2,
         img5,
@@ -415,6 +441,12 @@ def schedule_stableworld_window_tri_9(
     orb_runtime_ms = float(similarity_result.debug.get("orb_runtime_ms", 0.0))
     lightglue_runtime_ms = float(similarity_result.debug.get("lightglue_runtime_ms", 0.0))
     runtime_ms = lightglue_runtime_ms or orb_runtime_ms
+    semantic_similarity = float(similarity_result.debug.get("semantic_similarity", similarity_result.similarity))
+    final_similarity = float(similarity_result.debug.get("final_similarity", similarity_result.similarity))
+    spatial_alpha = float(similarity_result.debug.get("spatial_alpha", lightglue_spatial_alpha))
+    average_displacement = float(similarity_result.debug.get("average_displacement", 0.0))
+    median_displacement = float(similarity_result.debug.get("median_displacement", 0.0))
+    maximum_displacement = float(similarity_result.debug.get("maximum_displacement", 0.0))
 
     if experiment_recorder is not None:
         experiment_recorder.record(
@@ -445,6 +477,8 @@ def schedule_stableworld_window_tri_9(
         match_path = os.path.join(debug_logger.matches_dir, f"{base_name}_{similarity_estimator_name}_match.png")
         heatmap_path = os.path.join(debug_logger.heatmaps_dir, f"{base_name}_heatmap.png")
         confidence_path = os.path.join(debug_logger.confidence_dir, f"{base_name}_confidence.png")
+        displacement_path = os.path.join(debug_logger.displacement_dir, f"{base_name}_displacement.png")
+        motion_vector_path = os.path.join(debug_logger.motion_vector_dir, f"{base_name}_motion_vector.png")
 
         save_debug_frame(img2, ref_path)
         save_debug_frame(img5, middle_path)
@@ -454,6 +488,10 @@ def schedule_stableworld_window_tri_9(
             cv2.imwrite(heatmap_path, similarity_result.debug["matching_heatmap"])
         if similarity_result.debug.get("confidence_distribution") is not None:
             cv2.imwrite(confidence_path, similarity_result.debug["confidence_distribution"])
+        if similarity_result.debug.get("displacement_field") is not None:
+            cv2.imwrite(displacement_path, similarity_result.debug["displacement_field"])
+        if similarity_result.debug.get("motion_vector") is not None:
+            cv2.imwrite(motion_vector_path, similarity_result.debug["motion_vector"])
 
         debug_logger.log_decision({
             "frame_index": int(frame_index),
@@ -469,6 +507,12 @@ def schedule_stableworld_window_tri_9(
             "lightglue_runtime_ms": lightglue_runtime_ms,
             "runtime_ms": runtime_ms,
             "confidence": float(similarity_result.confidence),
+            "semantic_similarity": semantic_similarity,
+            "final_similarity": final_similarity,
+            "spatial_alpha": spatial_alpha,
+            "average_displacement": average_displacement,
+            "median_displacement": median_displacement,
+            "maximum_displacement": maximum_displacement,
             "estimator": similarity_estimator_name,
             "decision": decision.decision,
             "window_before": " ".join(str(x) for x in window_before),
@@ -528,6 +572,7 @@ class CausalInferencePipeline(torch.nn.Module):
         debug_stableworld: bool = False,
         debug_output_dir: str | None = None,
         similarity_estimator_name: str = "orb",
+        lightglue_spatial_alpha: float = 0.0,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -560,7 +605,7 @@ class CausalInferencePipeline(torch.nn.Module):
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
             debug_logger = StableWorldDebugLogger(debug_output_dir)
-            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}")
+            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}")
             experiment_recorder = ExperimentRecorder(
                 enabled=True,
                 database_root=os.path.join(debug_output_dir, "experiment_tracking"),
@@ -569,6 +614,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     "evict_mode": evict_mode,
                     "threshold": Threshold,
                     "similarity_estimator": similarity_estimator_name,
+                    "lightglue_spatial_alpha": lightglue_spatial_alpha,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
                 },
@@ -684,6 +730,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     experiment_recorder=experiment_recorder,
                     frame_index=current_start_frame,
                     similarity_estimator_name=similarity_estimator_name,
+                    lightglue_spatial_alpha=lightglue_spatial_alpha,
                 )
                 if debug_logger is not None:
                     debug_logger.log_event(current_start_frame, "Similarity", f"similarity={sim_min:.4f}")
