@@ -141,3 +141,5 @@ Rule policy vs Score policy vs future RL placeholder，验证 Phys-Mem 的贡献
 
 Evidence 消融
 Phys-Mem + ORB、Phys-Mem + LightGlue、Phys-Mem + Depth、Phys-Mem + Fusion，证明 scheduler 和 evidence 是可解耦的。
+
+stage 10

@@ -58,3 +58,14 @@ Phys-Mem：
 python inference.py --evict_mode --stableworld_debug --similarity_estimator depth --memory_scheduler physmem --depth_metric l1 --depth_checkpoint <DepthAnythingV2权重>
 也可以和 LightGlue / ORB 比较：
 python inference.py --evict_mode --stableworld_debug --similarity_estimator lightglue --memory_scheduler physmem
+
+evaluation 平台
+运行方式
+只生成实验计划、命令、空表格和 Figure，不启动推理：
+python evaluation_cli.py --output_root outputs/evaluation
+真正启动全部实验：
+python evaluation_cli.py --output_root outputs/evaluation --run
+只汇总已经跑好的结果：
+python evaluation_cli.py --output_root outputs/evaluation --collect_only
+Depth 实验需要指定权重：
+python evaluation_cli.py --output_root outputs/evaluation --depth_checkpoint <DepthAnythingV2权重路径>
