@@ -178,6 +178,10 @@ class ActionIntentEngine:
         return state
 
     def save(self, output_dir: str):
+        self.save_states(self.states, output_dir, self.bucket_size)
+
+    @staticmethod
+    def save_states(states: List[ActionState], output_dir: str, bucket_size: int = 100):
         os.makedirs(output_dir, exist_ok=True)
         timeline_path = os.path.join(output_dir, "action_timeline.csv")
         with open(timeline_path, "w", newline="", encoding="utf-8") as f:
@@ -192,7 +196,7 @@ class ActionIntentEngine:
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            for state in self.states:
+            for state in states:
                 row = asdict(state)
                 row["keyboard_vector"] = " ".join(f"{x:.6f}" for x in state.keyboard_vector)
                 row["mouse_vector"] = " ".join(f"{x:.6f}" for x in state.mouse_vector)
@@ -210,7 +214,7 @@ class ActionIntentEngine:
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            for row in ActionBenchmark.summarize(self.states, self.bucket_size):
+            for row in ActionBenchmark.summarize(states, bucket_size):
                 writer.writerow(row)
 
-        ActionVisualizer.save(self.states, os.path.join(output_dir, "action_timeline.png"))
+        ActionVisualizer.save(states, os.path.join(output_dir, "action_timeline.png"))

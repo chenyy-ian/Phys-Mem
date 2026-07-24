@@ -1,0 +1,31 @@
+项目总体目标（Project Overview）
+
+本项目以 StableWorld（基于 Matrix-Game2.0 的长视频生成框架） 为基础，对其核心的 Memory Scheduling（记忆调度）机制进行研究和改进。整个工作的目标并不是重新设计一个视频生成模型，而是在不改变原有视频生成模型的前提下，通过重新设计 Memory 的更新策略，提高长视频生成过程中的空间一致性、时间连续性以及整体稳定性。
+
+StableWorld 原始方案采用 ORB（Oriented FAST and Rotated BRIEF） 对当前帧与历史关键帧进行二维局部特征匹配，根据匹配结果决定是否保留或更新 Memory（KV Cache）。这种方法实现简单、运行速度快，但本质上仍然属于二维像素级匹配。当场景存在大面积重复纹理、视角变化、尺度变化或者玩家运动时，ORB 很容易发生误匹配，从而导致 Memory 被错误刷新或错误保留，最终表现为画面闪烁、纹理游动、空间结构崩塌等问题。
+
+因此，本项目的核心研究问题是：
+
+如何让 Memory Scheduler 不再仅依赖二维图像相似性，而是能够结合场景几何信息、玩家动作信息以及多源证据，对 Memory 的保留与更新做出更加符合真实物理世界的决策。
+
+整个研究路线遵循一种逐步演进的思想，而不是一次性提出完整的新框架。
+
+第一阶段首先完整复现 StableWorld，并建立可信的 Baseline，对其 Memory 更新流程进行分析和验证；随后对代码架构进行重构，将 Memory Scheduler 与具体的 ORB 算法解耦，使不同的相似性算法能够通过统一接口进行替换，为后续实验建立统一的软件基础。
+
+在算法层面，项目首先尝试使用 LightGlue 替代 ORB，提高二维语义匹配能力，缓解 ORB 在尺度变化和视角变化下的误判问题；随后进一步引入 Spatial Penalty（空间位移约束），减少 LightGlue 在连续运动过程中产生的 Memory 粘连问题。但这一阶段仍然属于二维空间上的改进，无法真正理解三维物理结构。
+
+因此，在下一阶段进一步引入 DepthAnythingV2 提取场景深度信息，通过真实几何关系判断场景是否发生变化，使 Memory Scheduler 从二维图像相似性提升到三维几何一致性。同时，为了解决深度估计在原地转头等场景下的局限，又进一步引入 玩家动作信息（Keyboard / Mouse Input），构建 Action-Condition Engine，使系统能够利用玩家输入推断真实观察意图，从而解决纯视觉信息无法覆盖的情况。
+
+在此基础上，项目最终将二维语义信息、三维几何信息以及动作意图信息统一抽象为 Evidence（证据），通过统一的 Fusion Framework 建立新的 Physics-aware Memory Scheduler（Phys-Mem）。最终 Memory 的更新决策不再由单一图像相似度决定，而是由多种证据共同参与判断，使整个 Memory 更新过程更加符合真实物理世界的连续性。
+
+为了保证整个研究过程具有良好的可重复性和实验公平性，本项目还设计了一套统一的 Experiment Tracking System。在 Stage2 至 Stage9 的整个开发过程中，所有算法均采用统一的数据记录格式（ExperimentRecord），仅负责记录实验过程中的原始数据，不进行任何论文指标计算。随后，在 Stage10 中统一读取所有 ExperimentRecord，离线计算 Memory Stability（MS）、False Refresh Rate（FRR）、Memory Consistency Score（MCS）、Phys-Mem Consistency Score（PCS）等实验指标，保证所有方法采用完全一致的评价标准，并自动生成论文所需的实验图表和统计结果。
+
+整个项目最终希望回答以下几个核心科学问题：
+
+二维图像特征是否足以支撑长视频生成中的 Memory 调度？
+引入三维几何信息后，是否能够显著提高 Memory 的空间一致性？
+玩家动作信息是否能够弥补纯视觉信息在特殊场景下的判断盲区？
+如何建立一种统一的多源证据融合机制，使 Memory 更新更加符合真实物理世界的连续性？
+如何在不重新训练视频生成模型的前提下，仅通过 Memory Scheduling 的改进，提高长视频生成质量？
+
+因此，本项目的真正贡献并不是简单地将 ORB 替换为 LightGlue，或者引入 DepthAnything，而是提出一种基于多源证据融合（语义、几何、动作）的 Physics-aware Memory Scheduling 框架（Phys-Mem），使 Memory 的更新策略从传统的二维图像匹配，逐步演化为符合真实物理世界连续性的统一决策机制，为长视频生成中的 Memory 管理提供一种无需重新训练模型、具有良好扩展性的解决方案。

@@ -57,6 +57,7 @@ class BenchmarkRunner:
                 "name": method.name,
                 "similarity_estimator": method.similarity_estimator,
                 "memory_scheduler": method.memory_scheduler,
+                "evidence_mode": method.evidence_mode,
                 "notes": method.notes,
             })
             commands.append({"method": method.name, "command": " ".join(shlex.quote(x) for x in command)})

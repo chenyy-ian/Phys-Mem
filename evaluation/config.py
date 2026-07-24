@@ -7,6 +7,7 @@ class ExperimentMethod:
     name: str
     similarity_estimator: str = "orb"
     memory_scheduler: str = "stableworld"
+    evidence_mode: str = "single"
     lightglue_spatial_alpha: float = 0.0
     depth_metric: str = "l1"
     fusion_mode: str = "weighted"
@@ -26,6 +27,8 @@ class ExperimentMethod:
             self.similarity_estimator,
             "--memory_scheduler",
             self.memory_scheduler,
+            "--evidence_mode",
+            self.evidence_mode,
             "--fusion_mode",
             self.fusion_mode,
             "--fusion_weight_appearance",
@@ -85,6 +88,6 @@ def default_experiment_suite() -> List[ExperimentMethod]:
         ),
         ExperimentMethod(name="physical_depth", similarity_estimator="depth"),
         ExperimentMethod(name="depth_action", similarity_estimator="depth"),
-        ExperimentMethod(name="fusion_debug", similarity_estimator="depth", fusion_mode="weighted"),
-        ExperimentMethod(name="physmem", similarity_estimator="depth", memory_scheduler="physmem"),
+        ExperimentMethod(name="fusion_debug", similarity_estimator="depth", evidence_mode="multi", fusion_mode="weighted"),
+        ExperimentMethod(name="physmem", similarity_estimator="depth", memory_scheduler="physmem", evidence_mode="multi"),
     ]

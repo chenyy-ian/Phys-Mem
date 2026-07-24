@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from demo_utils.constant import ZERO_VAE_CACHE
 from .experiment_tracking import ExperimentRecorder
 from .stableworld_action import ActionIntentEngine
+from .stableworld_evidence import EvidenceCollector
 from .stableworld_fusion import EvidenceValue, FusionBenchmark, FusionConfig, FusionEngine, FusionVisualizer
 from .stableworld_memory import MemoryBuffer, MemoryPolicy, MemoryScheduler, PhysMemScheduler
 from .stableworld_similarity import build_similarity_estimator, orb_ransac_score_chw
@@ -157,12 +158,11 @@ class StableWorldDebugLogger:
         self.depth_heatmap_dir = os.path.join(output_dir, "depth_heatmaps")
         self.depth_histogram_dir = os.path.join(output_dir, "depth_histograms")
         self.action_dir = os.path.join(output_dir, "action_timeline")
-        self.action_engine = ActionIntentEngine(bucket_size=bucket_size)
         self.fusion_dir = os.path.join(output_dir, "fusion")
-        self.fusion_engine = FusionEngine(fusion_config or FusionConfig())
         self.fusion_records = []
         self.physmem_records = []
         self.last_action_state = None
+        self.action_states = []
         self.records = []
         self.events = []
         os.makedirs(self.frames_dir, exist_ok=True)
@@ -201,17 +201,11 @@ class StableWorldDebugLogger:
             f" orb_ms={record['orb_runtime_ms']:.2f}"
         )
 
-    def log_action(self, frame_index: int, conditional_dict: dict, current_start_frame: int, num_frame_per_block: int, mode: str):
-        state = self.action_engine.record(
-            frame_index=frame_index,
-            conditional_dict=conditional_dict,
-            current_start_frame=current_start_frame,
-            num_frame_per_block=num_frame_per_block,
-            mode=mode,
-        )
+    def log_action_state(self, state):
         self.last_action_state = state
+        self.action_states.append(state)
         self.log_event(
-            frame_index,
+            state.frame_index,
             "Action Intent",
             (
                 f"intent={state.intent_state}, confidence={state.intent_confidence:.4f}, "
@@ -220,42 +214,12 @@ class StableWorldDebugLogger:
         )
         return state
 
-    def log_fusion(self, record: dict, action_state=None):
-        action_state = action_state or self.last_action_state
+    def log_fusion_result(self, frame_index: int, estimator: str, result, action_state=None):
         intent_state = getattr(action_state, "intent_state", "Unknown")
         intent_confidence = float(getattr(action_state, "intent_confidence", 0.0))
-        intent_score = FusionEngine.intent_to_memory_score(intent_state, intent_confidence)
-        estimator = record.get("estimator", "")
-        evidences = {
-            "appearance": EvidenceValue(
-                name="appearance",
-                score=float(record.get("similarity", 0.0)) if estimator == "orb" else 0.0,
-                confidence=float(record.get("confidence", 0.0)) if estimator == "orb" else 0.0,
-                available=estimator == "orb",
-            ),
-            "semantic": EvidenceValue(
-                name="semantic",
-                score=float(record.get("semantic_similarity", 0.0)) if estimator == "lightglue" else 0.0,
-                confidence=float(record.get("confidence", 0.0)) if estimator == "lightglue" else 0.0,
-                available=estimator == "lightglue",
-            ),
-            "geometry": EvidenceValue(
-                name="geometry",
-                score=float(record.get("geometry_similarity", 0.0)) if estimator == "depth" else 0.0,
-                confidence=float(record.get("confidence", 0.0)) if estimator == "depth" else 0.0,
-                available=estimator == "depth",
-            ),
-            "intent": EvidenceValue(
-                name="intent",
-                score=intent_score,
-                confidence=intent_confidence,
-                available=action_state is not None,
-                metadata={"intent_state": intent_state},
-            ),
-        }
-        result = self.fusion_engine.fuse(evidences)
+        intent_score = result.evidence_scores.get("intent", FusionEngine.intent_to_memory_score(intent_state, intent_confidence))
         fusion_record = {
-            "frame_index": int(record["frame_index"]),
+            "frame_index": int(frame_index),
             "estimator": estimator,
             "unified_memory_score": result.unified_memory_score,
             "evidence_confidence": result.evidence_confidence,
@@ -270,7 +234,7 @@ class StableWorldDebugLogger:
             fusion_record[f"{name}_contribution"] = result.evidence_contributions.get(name, 0.0)
         self.fusion_records.append(fusion_record)
         self.log_event(
-            record["frame_index"],
+            frame_index,
             "Fusion",
             (
                 f"score={result.unified_memory_score:.4f}, confidence={result.evidence_confidence:.4f}, "
@@ -296,7 +260,7 @@ class StableWorldDebugLogger:
 
     def save(self):
         os.makedirs(self.output_dir, exist_ok=True)
-        self.action_engine.save(self.action_dir)
+        ActionIntentEngine.save_states(self.action_states, self.action_dir, self.bucket_size)
         self._save_fusion()
         self._save_physmem()
         records_path = os.path.join(self.output_dir, "stableworld_frame_log.csv")
@@ -614,6 +578,7 @@ def get_decoded_frame_by_latent(videos: list, latent_id: int, sub: int = 2):
 def decide_and_update_window_ids_tri_9(
     window_ids: list,
     videos: list,
+    conditional_dict: dict | None = None,
     sim_threshold: float = 0.75,
     sub: int = 2,
     debug_logger: StableWorldDebugLogger | None = None,
@@ -626,10 +591,15 @@ def decide_and_update_window_ids_tri_9(
     depth_checkpoint: str | None = None,
     depth_cache_size: int = 256,
     memory_scheduler_name: str = "stableworld",
+    evidence_mode: str = "single",
+    evidence_collector: EvidenceCollector | None = None,
+    num_frame_per_block: int = 1,
+    mode: str = "universal",
 ) -> tuple[int, list, float]:
     return schedule_stableworld_window_tri_9(
         window_ids=window_ids,
         videos=videos,
+        conditional_dict=conditional_dict,
         sim_threshold=sim_threshold,
         sub=sub,
         debug_logger=debug_logger,
@@ -642,12 +612,17 @@ def decide_and_update_window_ids_tri_9(
         depth_checkpoint=depth_checkpoint,
         depth_cache_size=depth_cache_size,
         memory_scheduler_name=memory_scheduler_name,
+        evidence_mode=evidence_mode,
+        evidence_collector=evidence_collector,
+        num_frame_per_block=num_frame_per_block,
+        mode=mode,
     )
 
 
 def schedule_stableworld_window_tri_9(
     window_ids: list,
     videos: list,
+    conditional_dict: dict | None = None,
     sim_threshold: float = 0.75,
     sub: int = 2,
     debug_logger: StableWorldDebugLogger | None = None,
@@ -660,6 +635,10 @@ def schedule_stableworld_window_tri_9(
     depth_checkpoint: str | None = None,
     depth_cache_size: int = 256,
     memory_scheduler_name: str = "stableworld",
+    evidence_mode: str = "single",
+    evidence_collector: EvidenceCollector | None = None,
+    num_frame_per_block: int = 1,
+    mode: str = "universal",
 ) -> tuple[int, list, float]:
     """
     StableWorld tri-9 scheduling through the refactored stack:
@@ -682,43 +661,45 @@ def schedule_stableworld_window_tri_9(
     img2 = get_decoded_frame_by_latent(videos, id2, sub=sub)
     img5 = get_decoded_frame_by_latent(videos, id5, sub=sub)
 
-    similarity_estimator = build_similarity_estimator(
-        similarity_estimator_name,
+    frame_index = current_id if frame_index is None else frame_index
+    if conditional_dict is None:
+        raise ValueError("conditional_dict is required for main-pipeline evidence collection")
+    evidence_collector = evidence_collector or EvidenceCollector(
+        primary_estimator_name=similarity_estimator_name,
+        evidence_mode=evidence_mode,
         lightglue_spatial_alpha=lightglue_spatial_alpha,
         depth_metric=depth_metric,
         depth_model=depth_model,
         depth_checkpoint=depth_checkpoint,
         depth_cache_size=depth_cache_size,
     )
-    similarity_result = similarity_estimator.compute_similarity(
-        img2,
-        img5,
+    evidence_bundle = evidence_collector.collect(
+        reference_frame=img2,
+        middle_frame=img5,
+        conditional_dict=conditional_dict,
+        frame_index=frame_index,
+        current_start_frame=frame_index,
+        num_frame_per_block=num_frame_per_block,
+        mode=mode,
         return_debug=debug_logger is not None,
     )
-
-    fusion_result = None
+    similarity_result = evidence_bundle.primary_similarity
+    fusion_result = evidence_bundle.fusion_result
+    action_state = evidence_bundle.action_state
     if debug_logger is not None:
-        pre_record = {
-            "frame_index": int(current_id if frame_index is None else frame_index),
-            "estimator": similarity_estimator_name,
-            "similarity": float(similarity_result.similarity),
-            "semantic_similarity": float(similarity_result.debug.get("semantic_similarity", similarity_result.similarity)),
-            "geometry_similarity": float(similarity_result.debug.get("geometry_similarity", similarity_result.similarity)),
-            "confidence": float(similarity_result.confidence),
-        }
-        fusion_result = debug_logger.log_fusion(pre_record)
+        debug_logger.log_action_state(action_state)
+        debug_logger.log_fusion_result(frame_index, similarity_estimator_name, fusion_result, action_state)
 
     if memory_scheduler_name == "physmem":
         scheduler = PhysMemScheduler(sim_threshold=sim_threshold, policy=MemoryPolicy(stable_score=sim_threshold))
-        geometry_confidence_for_policy = float(similarity_result.confidence if similarity_estimator_name == "depth" else 1.0)
-        action_state = getattr(debug_logger, "last_action_state", None) if debug_logger is not None else None
+        geometry_evidence = evidence_bundle.evidences.get("geometry")
+        geometry_confidence_for_policy = float(geometry_evidence.confidence if geometry_evidence is not None else 1.0)
         intent_state_for_policy = getattr(action_state, "intent_state", "Unknown")
         intent_confidence_for_policy = float(getattr(action_state, "intent_confidence", 0.0))
-        unified_score_for_policy = fusion_result.unified_memory_score if fusion_result is not None else float(similarity_result.similarity)
         decision = scheduler.schedule(
             memory_buffer,
             similarity_result,
-            unified_memory_score=unified_score_for_policy,
+            fusion_result=fusion_result,
             geometry_confidence=geometry_confidence_for_policy,
             intent_state=intent_state_for_policy,
             intent_confidence=intent_confidence_for_policy,
@@ -728,7 +709,6 @@ def schedule_stableworld_window_tri_9(
         decision = scheduler.schedule(memory_buffer, similarity_result)
     new_ids = memory_buffer.apply_decision(decision)
     min_sim = similarity_result.similarity
-    frame_index = current_id if frame_index is None else frame_index
     orb_runtime_ms = float(similarity_result.debug.get("orb_runtime_ms", 0.0))
     lightglue_runtime_ms = float(similarity_result.debug.get("lightglue_runtime_ms", 0.0))
     runtime_ms = lightglue_runtime_ms or orb_runtime_ms
@@ -768,6 +748,11 @@ def schedule_stableworld_window_tri_9(
             FusionWeight=float(getattr(decision, "unified_memory_score", similarity_result.similarity) or similarity_result.similarity),
             PolicyConfidence=float(decision.confidence),
             DecisionConfidence=float(similarity_result.confidence),
+            ActionType=action_state.intent_state,
+            ActionMagnitude=float(max(action_state.rotation_speed, action_state.movement_speed)),
+            GeometryScore=float(evidence_bundle.evidences.get("geometry").score) if evidence_bundle.evidences.get("geometry") is not None else None,
+            SemanticScore=float(evidence_bundle.evidences.get("semantic").score) if evidence_bundle.evidences.get("semantic") is not None else None,
+            FusionDecision=decision.memory_state,
         )
 
     if debug_logger is not None:
@@ -912,6 +897,7 @@ class CausalInferencePipeline(torch.nn.Module):
         fusion_weight_geometry: float = 0.25,
         fusion_weight_intent: float = 0.25,
         memory_scheduler_name: str = "stableworld",
+        evidence_mode: str = "single",
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -941,16 +927,27 @@ class CausalInferencePipeline(torch.nn.Module):
 
         debug_logger = None
         experiment_recorder = None
+        fusion_config = FusionConfig()
+        fusion_config.mode = fusion_mode
+        fusion_config.weights.appearance = fusion_weight_appearance
+        fusion_config.weights.semantic = fusion_weight_semantic
+        fusion_config.weights.geometry = fusion_weight_geometry
+        fusion_config.weights.intent = fusion_weight_intent
+        evidence_collector = EvidenceCollector(
+            primary_estimator_name=similarity_estimator_name,
+            evidence_mode=evidence_mode,
+            lightglue_spatial_alpha=lightglue_spatial_alpha,
+            depth_metric=depth_metric,
+            depth_model=depth_model,
+            depth_checkpoint=depth_checkpoint,
+            depth_cache_size=depth_cache_size,
+            fusion_engine=FusionEngine(fusion_config),
+            action_engine=ActionIntentEngine(),
+        )
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
-            fusion_config = FusionConfig()
-            fusion_config.mode = fusion_mode
-            fusion_config.weights.appearance = fusion_weight_appearance
-            fusion_config.weights.semantic = fusion_weight_semantic
-            fusion_config.weights.geometry = fusion_weight_geometry
-            fusion_config.weights.intent = fusion_weight_intent
             debug_logger = StableWorldDebugLogger(debug_output_dir, fusion_config=fusion_config)
-            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, memory_scheduler={memory_scheduler_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}, depth_metric={depth_metric}, depth_model={depth_model}")
+            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, evidence_mode={evidence_mode}, memory_scheduler={memory_scheduler_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}, depth_metric={depth_metric}, depth_model={depth_model}")
             experiment_recorder = ExperimentRecorder(
                 enabled=True,
                 database_root=os.path.join(debug_output_dir, "experiment_tracking"),
@@ -970,6 +967,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     "fusion_weight_geometry": fusion_weight_geometry,
                     "fusion_weight_intent": fusion_weight_intent,
                     "memory_scheduler": memory_scheduler_name,
+                    "evidence_mode": evidence_mode,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
                 },
@@ -1064,13 +1062,6 @@ class CausalInferencePipeline(torch.nn.Module):
             generated_start_frame = current_start_frame
             if debug_logger is not None:
                 debug_logger.log_event(current_start_frame, "Action", f"using precomputed action window for latent frames {current_start_frame}-{current_start_frame + current_num_frames - 1}")
-                debug_logger.log_action(
-                    frame_index=current_start_frame,
-                    conditional_dict=conditional_dict,
-                    current_start_frame=current_start_frame,
-                    num_frame_per_block=self.num_frame_per_block,
-                    mode=mode,
-                )
 
             noisy_input = noise[
                 :, :, current_start_frame - num_input_frames:current_start_frame + current_num_frames - num_input_frames]
@@ -1082,11 +1073,12 @@ class CausalInferencePipeline(torch.nn.Module):
             valid_len = current_start_frame
             if valid_len >= len(window_ids) and evict_mode:
                 if debug_logger is not None:
-                    debug_logger.log_event(current_start_frame, "ORB", f"checking window={window_ids}")
+                    debug_logger.log_event(current_start_frame, "Evidence Collector", f"checking window={window_ids}, evidence_mode={evidence_mode}, primary={similarity_estimator_name}")
 
                 evict_middle, window_ids, sim_min = schedule_stableworld_window_tri_9(
                     window_ids=window_ids,
                     videos=videos,         
+                    conditional_dict=conditional_dict,
                     sim_threshold=Threshold,
                     debug_logger=debug_logger,
                     experiment_recorder=experiment_recorder,
@@ -1098,6 +1090,10 @@ class CausalInferencePipeline(torch.nn.Module):
                     depth_checkpoint=depth_checkpoint,
                     depth_cache_size=depth_cache_size,
                     memory_scheduler_name=memory_scheduler_name,
+                    evidence_mode=evidence_mode,
+                    evidence_collector=evidence_collector,
+                    num_frame_per_block=self.num_frame_per_block,
+                    mode=mode,
                 )
                 if debug_logger is not None:
                     debug_logger.log_event(current_start_frame, "Similarity", f"similarity={sim_min:.4f}")

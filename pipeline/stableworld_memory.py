@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from .stableworld_similarity import SimilarityResult
 
@@ -168,11 +168,14 @@ class PhysMemScheduler(MemoryScheduler):
         self,
         memory_buffer: MemoryBuffer,
         similarity: SimilarityResult,
+        fusion_result: Any = None,
         unified_memory_score: float | None = None,
         geometry_confidence: float = 1.0,
         intent_state: str = "Unknown",
         intent_confidence: float = 0.0,
     ) -> MemoryDecision:
+        if fusion_result is not None:
+            unified_memory_score = float(fusion_result.unified_memory_score)
         score = float(similarity.similarity if unified_memory_score is None else unified_memory_score)
         context = {
             "unified_memory_score": score,
