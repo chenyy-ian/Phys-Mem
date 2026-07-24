@@ -37,6 +37,11 @@ def parse_args():
     parser.add_argument("--depth_model", type=str, default="vits", choices=["vits", "vitb", "vitl", "vitg"], help="DepthAnythingV2 model variant")
     parser.add_argument("--depth_checkpoint", type=str, default=None, help="Path to DepthAnythingV2 checkpoint")
     parser.add_argument("--depth_cache_size", type=int, default=256, help="Maximum number of depth maps cached by DepthSimilarityEstimator")
+    parser.add_argument("--fusion_mode", type=str, default="weighted", choices=["weighted", "rule", "rule_based", "learned", "learned_placeholder"], help="Fusion strategy used for StableWorld debug evidence aggregation")
+    parser.add_argument("--fusion_weight_appearance", type=float, default=0.25, help="Appearance evidence weight for fusion debug outputs")
+    parser.add_argument("--fusion_weight_semantic", type=float, default=0.25, help="Semantic evidence weight for fusion debug outputs")
+    parser.add_argument("--fusion_weight_geometry", type=float, default=0.25, help="Geometry evidence weight for fusion debug outputs")
+    parser.add_argument("--fusion_weight_intent", type=float, default=0.25, help="Intent evidence weight for fusion debug outputs")
     args = parser.parse_args()
     return args
 
@@ -158,7 +163,12 @@ class InteractiveGameInference:
                 depth_metric=self.args.depth_metric,
                 depth_model=self.args.depth_model,
                 depth_checkpoint=self.args.depth_checkpoint,
-                depth_cache_size=self.args.depth_cache_size
+                depth_cache_size=self.args.depth_cache_size,
+                fusion_mode=self.args.fusion_mode,
+                fusion_weight_appearance=self.args.fusion_weight_appearance,
+                fusion_weight_semantic=self.args.fusion_weight_semantic,
+                fusion_weight_geometry=self.args.fusion_weight_geometry,
+                fusion_weight_intent=self.args.fusion_weight_intent
             )
 
         videos_tensor = torch.cat(videos, dim=1)

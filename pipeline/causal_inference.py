@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from demo_utils.constant import ZERO_VAE_CACHE
 from .experiment_tracking import ExperimentRecorder
 from .stableworld_action import ActionIntentEngine
+from .stableworld_fusion import EvidenceValue, FusionBenchmark, FusionConfig, FusionEngine, FusionVisualizer
 from .stableworld_memory import MemoryBuffer, MemoryScheduler
 from .stableworld_similarity import build_similarity_estimator, orb_ransac_score_chw
 from tqdm import tqdm
@@ -142,7 +143,7 @@ import cv2
 
 
 class StableWorldDebugLogger:
-    def __init__(self, output_dir: str, bucket_size: int = 100):
+    def __init__(self, output_dir: str, bucket_size: int = 100, fusion_config: FusionConfig | None = None):
         self.output_dir = output_dir
         self.bucket_size = bucket_size
         self.frames_dir = os.path.join(output_dir, "frames")
@@ -157,6 +158,10 @@ class StableWorldDebugLogger:
         self.depth_histogram_dir = os.path.join(output_dir, "depth_histograms")
         self.action_dir = os.path.join(output_dir, "action_timeline")
         self.action_engine = ActionIntentEngine(bucket_size=bucket_size)
+        self.fusion_dir = os.path.join(output_dir, "fusion")
+        self.fusion_engine = FusionEngine(fusion_config or FusionConfig())
+        self.fusion_records = []
+        self.last_action_state = None
         self.records = []
         self.events = []
         os.makedirs(self.frames_dir, exist_ok=True)
@@ -170,6 +175,7 @@ class StableWorldDebugLogger:
         os.makedirs(self.depth_heatmap_dir, exist_ok=True)
         os.makedirs(self.depth_histogram_dir, exist_ok=True)
         os.makedirs(self.action_dir, exist_ok=True)
+        os.makedirs(self.fusion_dir, exist_ok=True)
 
     def log_event(self, frame_index: int, stage: str, detail: str):
         item = {
@@ -202,6 +208,7 @@ class StableWorldDebugLogger:
             num_frame_per_block=num_frame_per_block,
             mode=mode,
         )
+        self.last_action_state = state
         self.log_event(
             frame_index,
             "Action Intent",
@@ -210,10 +217,70 @@ class StableWorldDebugLogger:
                 f"rotation={state.rotation_speed:.4f}, movement={state.movement_speed:.4f}"
             ),
         )
+        return state
+
+    def log_fusion(self, record: dict, action_state=None):
+        action_state = action_state or self.last_action_state
+        intent_state = getattr(action_state, "intent_state", "Unknown")
+        intent_confidence = float(getattr(action_state, "intent_confidence", 0.0))
+        intent_score = FusionEngine.intent_to_memory_score(intent_state, intent_confidence)
+        estimator = record.get("estimator", "")
+        evidences = {
+            "appearance": EvidenceValue(
+                name="appearance",
+                score=float(record.get("similarity", 0.0)) if estimator == "orb" else 0.0,
+                confidence=float(record.get("confidence", 0.0)) if estimator == "orb" else 0.0,
+                available=estimator == "orb",
+            ),
+            "semantic": EvidenceValue(
+                name="semantic",
+                score=float(record.get("semantic_similarity", 0.0)) if estimator == "lightglue" else 0.0,
+                confidence=float(record.get("confidence", 0.0)) if estimator == "lightglue" else 0.0,
+                available=estimator == "lightglue",
+            ),
+            "geometry": EvidenceValue(
+                name="geometry",
+                score=float(record.get("geometry_similarity", 0.0)) if estimator == "depth" else 0.0,
+                confidence=float(record.get("confidence", 0.0)) if estimator == "depth" else 0.0,
+                available=estimator == "depth",
+            ),
+            "intent": EvidenceValue(
+                name="intent",
+                score=intent_score,
+                confidence=intent_confidence,
+                available=action_state is not None,
+                metadata={"intent_state": intent_state},
+            ),
+        }
+        result = self.fusion_engine.fuse(evidences)
+        fusion_record = {
+            "frame_index": int(record["frame_index"]),
+            "estimator": estimator,
+            "unified_memory_score": result.unified_memory_score,
+            "evidence_confidence": result.evidence_confidence,
+            "intent_state": intent_state,
+            "intent_confidence": intent_confidence,
+            "intent_score": intent_score,
+            "mode": result.mode,
+        }
+        for name in ("appearance", "semantic", "geometry", "intent"):
+            fusion_record[f"{name}_score"] = result.evidence_scores.get(name, 0.0)
+            fusion_record[f"{name}_weight"] = result.evidence_weights.get(name, 0.0)
+            fusion_record[f"{name}_contribution"] = result.evidence_contributions.get(name, 0.0)
+        self.fusion_records.append(fusion_record)
+        self.log_event(
+            record["frame_index"],
+            "Fusion",
+            (
+                f"score={result.unified_memory_score:.4f}, confidence={result.evidence_confidence:.4f}, "
+                f"weights={result.evidence_weights}"
+            ),
+        )
 
     def save(self):
         os.makedirs(self.output_dir, exist_ok=True)
         self.action_engine.save(self.action_dir)
+        self._save_fusion()
         records_path = os.path.join(self.output_dir, "stableworld_frame_log.csv")
         with open(records_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
@@ -287,6 +354,54 @@ class StableWorldDebugLogger:
             json.dump({"events": self.events, "records": self.records}, f, indent=2)
 
         self._save_timeline()
+
+    def _save_fusion(self):
+        os.makedirs(self.fusion_dir, exist_ok=True)
+        records_path = os.path.join(self.fusion_dir, "fusion_evidence_log.csv")
+        fieldnames = [
+            "frame_index",
+            "estimator",
+            "unified_memory_score",
+            "evidence_confidence",
+            "intent_state",
+            "intent_confidence",
+            "intent_score",
+            "mode",
+            "appearance_score",
+            "appearance_weight",
+            "appearance_contribution",
+            "semantic_score",
+            "semantic_weight",
+            "semantic_contribution",
+            "geometry_score",
+            "geometry_weight",
+            "geometry_contribution",
+            "intent_weight",
+            "intent_contribution",
+        ]
+        with open(records_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(self.fusion_records)
+
+        summary_path = os.path.join(self.fusion_dir, "fusion_summary_100f.csv")
+        with open(summary_path, "w", newline="", encoding="utf-8") as f:
+            fieldnames = [
+                "frame_bucket_start",
+                "frame_bucket_end",
+                "average_unified_memory_score",
+                "average_evidence_confidence",
+                "appearance_contribution",
+                "semantic_contribution",
+                "geometry_contribution",
+                "intent_contribution",
+            ]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in FusionBenchmark.summarize(self.fusion_records, self.bucket_size):
+                writer.writerow(row)
+
+        FusionVisualizer.save(self.fusion_records, self.fusion_dir)
 
     def _bucket_summary(self):
         if not self.records:
@@ -579,7 +694,7 @@ def schedule_stableworld_window_tri_9(
         if similarity_result.debug.get("depth_histogram") is not None:
             cv2.imwrite(depth_histogram_path, similarity_result.debug["depth_histogram"])
 
-        debug_logger.log_decision({
+        debug_record = {
             "frame_index": int(frame_index),
             "reference_frame": int(id2),
             "middle_frame": int(id5),
@@ -609,7 +724,9 @@ def schedule_stableworld_window_tri_9(
             "decision": decision.decision,
             "window_before": " ".join(str(x) for x in window_before),
             "window_after": " ".join(str(x) for x in new_ids),
-        })
+        }
+        debug_logger.log_decision(debug_record)
+        debug_logger.log_fusion(debug_record)
 
     return decision.evict_middle, new_ids, min_sim
 
@@ -669,6 +786,11 @@ class CausalInferencePipeline(torch.nn.Module):
         depth_model: str = "vits",
         depth_checkpoint: str | None = None,
         depth_cache_size: int = 256,
+        fusion_mode: str = "weighted",
+        fusion_weight_appearance: float = 0.25,
+        fusion_weight_semantic: float = 0.25,
+        fusion_weight_geometry: float = 0.25,
+        fusion_weight_intent: float = 0.25,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -700,7 +822,13 @@ class CausalInferencePipeline(torch.nn.Module):
         experiment_recorder = None
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
-            debug_logger = StableWorldDebugLogger(debug_output_dir)
+            fusion_config = FusionConfig()
+            fusion_config.mode = fusion_mode
+            fusion_config.weights.appearance = fusion_weight_appearance
+            fusion_config.weights.semantic = fusion_weight_semantic
+            fusion_config.weights.geometry = fusion_weight_geometry
+            fusion_config.weights.intent = fusion_weight_intent
+            debug_logger = StableWorldDebugLogger(debug_output_dir, fusion_config=fusion_config)
             debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}, depth_metric={depth_metric}, depth_model={depth_model}")
             experiment_recorder = ExperimentRecorder(
                 enabled=True,
@@ -715,6 +843,11 @@ class CausalInferencePipeline(torch.nn.Module):
                     "depth_model": depth_model,
                     "depth_checkpoint": depth_checkpoint,
                     "depth_cache_size": depth_cache_size,
+                    "fusion_mode": fusion_mode,
+                    "fusion_weight_appearance": fusion_weight_appearance,
+                    "fusion_weight_semantic": fusion_weight_semantic,
+                    "fusion_weight_geometry": fusion_weight_geometry,
+                    "fusion_weight_intent": fusion_weight_intent,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
                 },

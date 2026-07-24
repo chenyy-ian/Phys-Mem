@@ -94,3 +94,28 @@ Action threshold sweep
 目标是证明 Action cue 需要 calibration，不能直接替代 Fusion 或 Depth。
 
 stage 8
+本阶段解决的科学问题是：当 Appearance、Semantic、Geometry、Intent 给出不一致证据时，Memory 不应该直接相信某一个单点估计器，而应该先形成统一的 Memory Evidence 表示。
+核心假设是：Memory collapse 不是单一视觉相似度失败，而是多种证据在不同场景下可靠性不同。ORB 擅长局部纹理，LightGlue 更语义稳，Depth 表达物理几何，Action 表达玩家意图；Fusion 的目标是建模“证据可信度”，不是直接替代调度器。
+Fusion 不是简单加权，因为不同 evidence 的含义不同：Depth 高相似表示几何稳定，Action 高置信可能反而表示应该更新 Memory；它们不是同构变量。当前实现把 Action 转成 intent memory score，并通过 EvidenceValue + WeightManager + Strategy 留出 rule-based 和 future learned fusion 接口。
+为什么 Fusion 不能直接 Replace Memory
+Fusion 输出的是 Unified Memory Score，属于证据聚合结果；MemoryScheduler 负责策略决策，例如 keep/delete/replace、窗口位置、KV 对齐、buffer 更新。证据层和策略层必须分开，否则未来换 VGGT、DUSt3R、Metric3D 或 learned fusion 时会污染 MemoryBuffer 和 KV Cache 逻辑。
+局限性
+当前 Fusion 是 debug-side aggregation，不会改变 baseline 输出。它只融合当前运行 estimator 的证据和 Action；不会额外同时跑 ORB/LightGlue/Depth，因此不会增加 runtime，也不会产生真正 full-evidence decision。下一阶段如果要让 Fusion 影响 Memory，需要单独设计 Fusion-aware Scheduler。
+消融实验
+单证据对比：ORB / LightGlue / Depth / Action / Fusion
+指标：Memory Stability、Frame Consistency、Runtime、replacement frequency。
+
+权重消融：去掉 Appearance、去掉 Semantic、去掉 Geometry、去掉 Intent
+观察重复纹理、光照变化、靠近门、原地转头场景下 unified score 的稳定性。
+
+策略消融：Weighted vs Rule-based vs Learned placeholder
+验证统一接口是否能支持不同融合范式，而不改 MemoryScheduler。
+
+动态权重消融：关闭 dynamic_adjustment vs 开启 confidence-aware weight
+验证 evidence confidence 是否能降低低质量匹配对最终 memory score 的污染。
+
+关于 VGGT / DUSt3R / Metric3D
+它们未来都可以作为新的 Geometry 或 3D Evidence 接入：只要输出 EvidenceValue(name, score, confidence, available, metadata)，FusionEngine 不需要知道底层是 DepthAnything、VGGT 还是 DUSt3R。这就是 Stage8 的主要价值：把“算法”从“证据接口”里解耦出来。
+
+stage 9
+
