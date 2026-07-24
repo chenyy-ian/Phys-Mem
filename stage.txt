@@ -21,3 +21,46 @@ semantic_similarity 决策 vs final_similarity 决策。验证 Spatial Penalty �
 这一步最适合作为 LightGlue 到 Depth 的中间阶段：它证明“仅语义匹配不够，需要空间一致性”，同时也暴露“仅 2D 空间一致性不够，需要 3D/Depth 解释”。
 
 stage 6
+本阶段解决的问题是：ORB 和 LightGlue 只能回答“图像是否相似”或“语义匹配是否可靠”，但 Memory 真正需要判断的是“物理世界状态是否仍然一致”。Depth 引入的是几何证据：同一记忆是否还能解释当前场景的空间结构。
+核心假设
+如果 reference frame 和 current/middle frame 属于同一个稳定物理世界，那么它们的相对 depth structure 应该保持连续或可比较；如果 depth difference 明显增大，说明旧 memory 可能已经不再是可靠物理锚点。
+局限性
+DepthAnythingV2 是单目 depth，通常只有相对深度，没有真实尺度；它也没有相机位姿、运动方向和动作意图。因此 depth difference 可能把“合理前进导致的深度变化”误判成世界变化，也可能在原地转头时失效。
+为什么 Depth 无法解决原地转头？
+原地转头时，世界没有物理位置平移，但视野内容大幅变化。单帧 depth map 只描述当前可见区域的相对深度，不知道相机 yaw 变化，也不知道新出现区域与旧区域在同一个 3D 世界中的关系。没有 Action/pose，Depth 无法判断这是“合理转头”还是“场景漂移”。所以 Depth 不能回答原地转头问题。
+为什么还需要 Action？
+Action 提供因果解释：前进、转向、抬头、低头会导致不同的合法几何变化。Depth 只能看到结果，Action 能解释变化是否合理。下一阶段应该让 Memory Decision 使用 action-conditioned physical consistency，而不是只看 depth map 差异。
+实验设计
+ORB vs LightGlue vs Depth 三路对比
+固定 seed、初始图、动作、checkpoint，分别运行：
+--similarity_estimator orb
+--similarity_estimator lightglue
+--similarity_estimator depth --depth_metric l1
+比较：
+Memory Replacement
+Average Similarity / Geometry Similarity
+Runtime
+Depth Difference
+Texture Drift
+Ghosting
+Depth Metric 消融
+固定 DepthAnythingV2 模型，比较：
+--depth_metric l1
+--depth_metric l2
+--depth_metric ssim
+--depth_metric gradient
+验证哪种几何信号最能区分真实世界变化与视觉纹理漂移。
+场景行为实验
+按你给的五类跑：
+玩家静止
+玩家慢速前进
+玩家快速前进
+玩家靠近门
+玩家靠近重复纹理
+预期：Depth 在靠近门、重复纹理、纹理漂移场景中优于 LightGlue；但在快速前进和原地转头中会暴露对 Action/pose 的依赖。
+Depth 相比 LightGlue
+提升：更关注 3D geometry，能减少“语义像但空间结构已变”的错误保留。
+不足：单目相对深度无尺度、无位姿、无动作因果。
+下一步：需要 Action-aware Memory，用动作解释 depth change 是否物理合理。
+
+stage 7

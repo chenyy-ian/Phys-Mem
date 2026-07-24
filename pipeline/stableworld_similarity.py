@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from collections import OrderedDict
+import hashlib
 import time
 
 import cv2
@@ -175,6 +177,25 @@ def chw_to_rgb_u8(chw: torch.Tensor) -> np.ndarray:
     if x.shape[0] == 1:
         x = x.repeat(3, 1, 1)
     return x.byte().permute(1, 2, 0).numpy()
+
+
+def normalize_float_map(x: np.ndarray) -> np.ndarray:
+    x = x.astype(np.float32)
+    finite = np.isfinite(x)
+    if not finite.any():
+        return np.zeros_like(x, dtype=np.float32)
+    valid = x[finite]
+    lo = float(valid.min())
+    hi = float(valid.max())
+    denom = max(hi - lo, 1e-6)
+    out = (x - lo) / denom
+    out[~finite] = 0.0
+    return np.clip(out, 0.0, 1.0).astype(np.float32)
+
+
+def colorize_float_map(x: np.ndarray, colormap: int = cv2.COLORMAP_INFERNO) -> np.ndarray:
+    x_u8 = (normalize_float_map(x) * 255).astype(np.uint8)
+    return cv2.applyColorMap(x_u8, colormap)
 
 
 class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
@@ -374,10 +395,235 @@ class LightGlueSimilarityEstimator(BaseSimilarityEstimator):
         }
 
 
-def build_similarity_estimator(name: str = "orb", lightglue_spatial_alpha: float = 0.0) -> BaseSimilarityEstimator:
+class DepthCache:
+    def __init__(self, max_size: int = 256):
+        self.max_size = int(max_size)
+        self._items = OrderedDict()
+
+    @staticmethod
+    def key(frame: torch.Tensor) -> str:
+        x = chw_to_rgb_u8(frame)
+        return hashlib.sha1(x.tobytes()).hexdigest()
+
+    def get(self, frame: torch.Tensor):
+        key = self.key(frame)
+        if key not in self._items:
+            return None
+        value = self._items.pop(key)
+        self._items[key] = value
+        return value
+
+    def put(self, frame: torch.Tensor, depth: np.ndarray):
+        key = self.key(frame)
+        if key in self._items:
+            self._items.pop(key)
+        self._items[key] = depth
+        while len(self._items) > self.max_size:
+            self._items.popitem(last=False)
+
+
+class DepthEngine:
+    def __init__(
+        self,
+        model_name: str = "vits",
+        checkpoint_path: str | None = None,
+        device: str | None = None,
+    ):
+        self.model_name = model_name
+        self.checkpoint_path = checkpoint_path
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = None
+
+    def _lazy_init(self):
+        if self.model is not None:
+            return
+        try:
+            from depth_anything_v2.dpt import DepthAnythingV2
+        except ImportError as exc:
+            raise ImportError(
+                "DepthSimilarityEstimator requires DepthAnythingV2. "
+                "Install depth_anything_v2 and provide --depth_checkpoint if your setup requires weights."
+            ) from exc
+
+        configs = {
+            "vits": {"encoder": "vits", "features": 64, "out_channels": [48, 96, 192, 384]},
+            "vitb": {"encoder": "vitb", "features": 128, "out_channels": [96, 192, 384, 768]},
+            "vitl": {"encoder": "vitl", "features": 256, "out_channels": [256, 512, 1024, 1024]},
+            "vitg": {"encoder": "vitg", "features": 384, "out_channels": [1536, 1536, 1536, 1536]},
+        }
+        if self.model_name not in configs:
+            raise ValueError(f"Unsupported DepthAnythingV2 model: {self.model_name}")
+
+        self.model = DepthAnythingV2(**configs[self.model_name])
+        if self.checkpoint_path:
+            state_dict = torch.load(self.checkpoint_path, map_location="cpu")
+            self.model.load_state_dict(state_dict)
+        self.model = self.model.to(self.device).eval()
+
+    def predict(self, frame: torch.Tensor) -> np.ndarray:
+        self._lazy_init()
+        image = chw_to_rgb_u8(frame)
+        with torch.no_grad():
+            depth = self.model.infer_image(image)
+        return normalize_float_map(np.asarray(depth, dtype=np.float32))
+
+
+class DepthVisualizer:
+    @staticmethod
+    def build(depth_ref: np.ndarray, depth_cur: np.ndarray, diff: np.ndarray, grad_diff: np.ndarray) -> dict:
+        hist = np.zeros((320, 480, 3), dtype=np.uint8) + 255
+        values = np.clip(diff.reshape(-1), 0, 1)
+        counts, bins = np.histogram(values, bins=np.linspace(0, 1, 21))
+        max_count = max(int(counts.max()), 1)
+        for i, count in enumerate(counts):
+            x0 = 30 + i * 21
+            x1 = x0 + 16
+            y1 = 280
+            y0 = y1 - int((count / max_count) * 230)
+            cv2.rectangle(hist, (x0, y0), (x1, y1), (70, 120, 210), -1)
+        cv2.putText(hist, "Depth difference distribution", (24, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
+        cv2.putText(hist, "0", (28, 304), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1)
+        cv2.putText(hist, "1", (438, 304), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1)
+
+        return {
+            "depth_reference": colorize_float_map(depth_ref),
+            "depth_current": colorize_float_map(depth_cur),
+            "depth_difference_map": colorize_float_map(diff, cv2.COLORMAP_MAGMA),
+            "depth_heatmap": colorize_float_map(grad_diff, cv2.COLORMAP_JET),
+            "depth_histogram": hist,
+        }
+
+
+class DepthSimilarityEstimator(BaseSimilarityEstimator):
+    _shared_cache = DepthCache()
+    _shared_engines = {}
+
+    def __init__(
+        self,
+        metric: str = "l1",
+        model_name: str = "vits",
+        checkpoint_path: str | None = None,
+        cache_size: int = 256,
+        device: str | None = None,
+    ):
+        self.metric = metric.lower()
+        self.model_name = model_name
+        self.checkpoint_path = checkpoint_path
+        self.device = device
+        if cache_size != self._shared_cache.max_size:
+            self._shared_cache.max_size = int(cache_size)
+
+    def _engine(self) -> DepthEngine:
+        key = (self.model_name, self.checkpoint_path, self.device)
+        if key not in self._shared_engines:
+            self._shared_engines[key] = DepthEngine(
+                model_name=self.model_name,
+                checkpoint_path=self.checkpoint_path,
+                device=self.device,
+            )
+        return self._shared_engines[key]
+
+    def _predict_with_cache(self, frame: torch.Tensor) -> tuple[np.ndarray, bool]:
+        cached = self._shared_cache.get(frame)
+        if cached is not None:
+            return cached, True
+        depth = self._engine().predict(frame)
+        self._shared_cache.put(frame, depth)
+        return depth, False
+
+    @staticmethod
+    def _gradient(x: np.ndarray) -> np.ndarray:
+        gx = cv2.Sobel(x, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(x, cv2.CV_32F, 0, 1, ksize=3)
+        return np.sqrt(gx * gx + gy * gy)
+
+    @staticmethod
+    def _ssim_similarity(a: np.ndarray, b: np.ndarray) -> tuple[float, float]:
+        c1 = 0.01 ** 2
+        c2 = 0.03 ** 2
+        mu_a = cv2.GaussianBlur(a, (11, 11), 1.5)
+        mu_b = cv2.GaussianBlur(b, (11, 11), 1.5)
+        sigma_a = cv2.GaussianBlur(a * a, (11, 11), 1.5) - mu_a * mu_a
+        sigma_b = cv2.GaussianBlur(b * b, (11, 11), 1.5) - mu_b * mu_b
+        sigma_ab = cv2.GaussianBlur(a * b, (11, 11), 1.5) - mu_a * mu_b
+        ssim_map = ((2 * mu_a * mu_b + c1) * (2 * sigma_ab + c2)) / (
+            (mu_a * mu_a + mu_b * mu_b + c1) * (sigma_a + sigma_b + c2) + 1e-6
+        )
+        ssim_value = float(np.clip(ssim_map.mean(), 0.0, 1.0))
+        return ssim_value, float(1.0 - ssim_value)
+
+    def _score(self, depth_ref: np.ndarray, depth_cur: np.ndarray) -> tuple[float, float, np.ndarray, np.ndarray]:
+        diff = np.abs(depth_ref - depth_cur)
+        grad_ref = self._gradient(depth_ref)
+        grad_cur = self._gradient(depth_cur)
+        grad_diff = np.abs(normalize_float_map(grad_ref) - normalize_float_map(grad_cur))
+
+        if self.metric == "l1":
+            depth_difference = float(diff.mean())
+            geometry_similarity = float(np.clip(1.0 - depth_difference, 0.0, 1.0))
+        elif self.metric == "l2":
+            depth_difference = float(np.sqrt(np.mean((depth_ref - depth_cur) ** 2)))
+            geometry_similarity = float(np.clip(1.0 - depth_difference, 0.0, 1.0))
+        elif self.metric == "ssim":
+            geometry_similarity, depth_difference = self._ssim_similarity(depth_ref, depth_cur)
+        elif self.metric in {"gradient", "depth_gradient"}:
+            depth_difference = float(grad_diff.mean())
+            geometry_similarity = float(np.clip(1.0 - depth_difference, 0.0, 1.0))
+        else:
+            raise ValueError(f"Unsupported depth metric: {self.metric}")
+
+        return geometry_similarity, depth_difference, diff, grad_diff
+
+    def compute_similarity(self, reference_frame: torch.Tensor, middle_frame: torch.Tensor, return_debug: bool = False) -> SimilarityResult:
+        start_time = time.perf_counter()
+        depth_ref, ref_cache_hit = self._predict_with_cache(reference_frame)
+        depth_cur, cur_cache_hit = self._predict_with_cache(middle_frame)
+        geometry_similarity, depth_difference, diff, grad_diff = self._score(depth_ref, depth_cur)
+        runtime_ms = (time.perf_counter() - start_time) * 1000.0
+
+        debug = {
+            "depth_runtime_ms": runtime_ms,
+            "geometry_similarity": geometry_similarity,
+            "depth_difference": depth_difference,
+            "depth_metric": self.metric,
+            "depth_model": self.model_name,
+            "depth_cache_hit_reference": ref_cache_hit,
+            "depth_cache_hit_current": cur_cache_hit,
+            "depth_reference": None,
+            "depth_current": None,
+            "depth_difference_map": None,
+            "depth_heatmap": None,
+            "depth_histogram": None,
+        }
+        if return_debug:
+            debug.update(DepthVisualizer.build(depth_ref, depth_cur, diff, grad_diff))
+
+        return SimilarityResult(
+            similarity=float(geometry_similarity),
+            confidence=float(geometry_similarity),
+            matching_points=int(depth_ref.size),
+            debug=debug,
+        )
+
+
+def build_similarity_estimator(
+    name: str = "orb",
+    lightglue_spatial_alpha: float = 0.0,
+    depth_metric: str = "l1",
+    depth_model: str = "vits",
+    depth_checkpoint: str | None = None,
+    depth_cache_size: int = 256,
+) -> BaseSimilarityEstimator:
     normalized = (name or "orb").lower()
     if normalized == "orb":
         return ORBSimilarityEstimator()
     if normalized == "lightglue":
         return LightGlueSimilarityEstimator(spatial_alpha=lightglue_spatial_alpha)
+    if normalized == "depth":
+        return DepthSimilarityEstimator(
+            metric=depth_metric,
+            model_name=depth_model,
+            checkpoint_path=depth_checkpoint,
+            cache_size=depth_cache_size,
+        )
     raise ValueError(f"Unknown similarity estimator: {name}")

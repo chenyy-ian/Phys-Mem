@@ -18,10 +18,27 @@ python inference.py ^
   --stableworld_debug_dir outputs_lightglue/stableworld_debug ^
   --similarity_estimator lightglue ^
   --lightglue_spatial_alpha 0.0
-  
+
 LightGlue + Spatial Penalty：
 python inference.py ^
   ... ^
   --stableworld_debug_dir outputs_lightglue_penalty/stableworld_debug ^
   --similarity_estimator lightglue ^
   --lightglue_spatial_alpha 0.001
+
+Depth 
+python inference.py ^
+  --config_path configs/inference_yaml/inference_universal.yaml ^
+  --checkpoint_path {matrix_game_checkpoint} ^
+  --output_folder outputs_depth ^
+  --num_output_frames 150 ^
+  --seed 42 ^
+  --pretrained_model_path {Matrix-Game-2.0} ^
+  --evict_mode True ^
+  --Threshold 0.78 ^
+  --stableworld_debug ^
+  --stableworld_debug_dir outputs_depth/stableworld_debug ^
+  --similarity_estimator depth ^
+  --depth_metric l1 ^
+  --depth_model vits ^
+  --depth_checkpoint {DepthAnythingV2_vits_checkpoint}

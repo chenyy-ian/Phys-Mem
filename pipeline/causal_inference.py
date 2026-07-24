@@ -150,6 +150,10 @@ class StableWorldDebugLogger:
         self.confidence_dir = os.path.join(output_dir, "confidence_distributions")
         self.displacement_dir = os.path.join(output_dir, "displacement_fields")
         self.motion_vector_dir = os.path.join(output_dir, "motion_vectors")
+        self.depth_dir = os.path.join(output_dir, "depth_maps")
+        self.depth_diff_dir = os.path.join(output_dir, "depth_differences")
+        self.depth_heatmap_dir = os.path.join(output_dir, "depth_heatmaps")
+        self.depth_histogram_dir = os.path.join(output_dir, "depth_histograms")
         self.records = []
         self.events = []
         os.makedirs(self.frames_dir, exist_ok=True)
@@ -158,6 +162,10 @@ class StableWorldDebugLogger:
         os.makedirs(self.confidence_dir, exist_ok=True)
         os.makedirs(self.displacement_dir, exist_ok=True)
         os.makedirs(self.motion_vector_dir, exist_ok=True)
+        os.makedirs(self.depth_dir, exist_ok=True)
+        os.makedirs(self.depth_diff_dir, exist_ok=True)
+        os.makedirs(self.depth_heatmap_dir, exist_ok=True)
+        os.makedirs(self.depth_histogram_dir, exist_ok=True)
 
     def log_event(self, frame_index: int, stage: str, detail: str):
         item = {
@@ -208,6 +216,12 @@ class StableWorldDebugLogger:
                     "average_displacement",
                     "median_displacement",
                     "maximum_displacement",
+                    "depth_runtime_ms",
+                    "geometry_similarity",
+                    "depth_difference",
+                    "depth_metric",
+                    "depth_cache_hit_reference",
+                    "depth_cache_hit_current",
                     "estimator",
                     "decision",
                     "window_before",
@@ -236,6 +250,10 @@ class StableWorldDebugLogger:
                     "average_displacement",
                     "median_displacement",
                     "maximum_displacement",
+                    "average_depth_difference",
+                    "average_depth_runtime_ms",
+                    "average_geometry_similarity",
+                    "depth_cache_hit_rate",
                 ],
             )
             writer.writeheader()
@@ -274,6 +292,13 @@ class StableWorldDebugLogger:
                 "average_displacement": float(np.mean([x["average_displacement"] for x in items])),
                 "median_displacement": float(np.median([x["median_displacement"] for x in items])),
                 "maximum_displacement": float(np.max([x["maximum_displacement"] for x in items])),
+                "average_depth_difference": float(np.mean([x["depth_difference"] for x in items])),
+                "average_depth_runtime_ms": float(np.mean([x["depth_runtime_ms"] for x in items])),
+                "average_geometry_similarity": float(np.mean([x["geometry_similarity"] for x in items])),
+                "depth_cache_hit_rate": float(np.mean([
+                    (int(x["depth_cache_hit_reference"]) + int(x["depth_cache_hit_current"])) / 2.0
+                    for x in items
+                ])),
             })
         return rows
 
@@ -377,6 +402,10 @@ def decide_and_update_window_ids_tri_9(
     frame_index: int | None = None,
     similarity_estimator_name: str = "orb",
     lightglue_spatial_alpha: float = 0.0,
+    depth_metric: str = "l1",
+    depth_model: str = "vits",
+    depth_checkpoint: str | None = None,
+    depth_cache_size: int = 256,
 ) -> tuple[int, list, float]:
     return schedule_stableworld_window_tri_9(
         window_ids=window_ids,
@@ -388,6 +417,10 @@ def decide_and_update_window_ids_tri_9(
         frame_index=frame_index,
         similarity_estimator_name=similarity_estimator_name,
         lightglue_spatial_alpha=lightglue_spatial_alpha,
+        depth_metric=depth_metric,
+        depth_model=depth_model,
+        depth_checkpoint=depth_checkpoint,
+        depth_cache_size=depth_cache_size,
     )
 
 
@@ -401,6 +434,10 @@ def schedule_stableworld_window_tri_9(
     frame_index: int | None = None,
     similarity_estimator_name: str = "orb",
     lightglue_spatial_alpha: float = 0.0,
+    depth_metric: str = "l1",
+    depth_model: str = "vits",
+    depth_checkpoint: str | None = None,
+    depth_cache_size: int = 256,
 ) -> tuple[int, list, float]:
     """
     StableWorld tri-9 scheduling through the refactored stack:
@@ -426,6 +463,10 @@ def schedule_stableworld_window_tri_9(
     similarity_estimator = build_similarity_estimator(
         similarity_estimator_name,
         lightglue_spatial_alpha=lightglue_spatial_alpha,
+        depth_metric=depth_metric,
+        depth_model=depth_model,
+        depth_checkpoint=depth_checkpoint,
+        depth_cache_size=depth_cache_size,
     )
     similarity_result = similarity_estimator.compute_similarity(
         img2,
@@ -447,6 +488,14 @@ def schedule_stableworld_window_tri_9(
     average_displacement = float(similarity_result.debug.get("average_displacement", 0.0))
     median_displacement = float(similarity_result.debug.get("median_displacement", 0.0))
     maximum_displacement = float(similarity_result.debug.get("maximum_displacement", 0.0))
+    depth_runtime_ms = float(similarity_result.debug.get("depth_runtime_ms", 0.0))
+    if depth_runtime_ms:
+        runtime_ms = depth_runtime_ms
+    geometry_similarity = float(similarity_result.debug.get("geometry_similarity", similarity_result.similarity))
+    depth_difference = float(similarity_result.debug.get("depth_difference", 0.0))
+    depth_metric_used = str(similarity_result.debug.get("depth_metric", ""))
+    depth_cache_hit_reference = bool(similarity_result.debug.get("depth_cache_hit_reference", False))
+    depth_cache_hit_current = bool(similarity_result.debug.get("depth_cache_hit_current", False))
 
     if experiment_recorder is not None:
         experiment_recorder.record(
@@ -479,6 +528,11 @@ def schedule_stableworld_window_tri_9(
         confidence_path = os.path.join(debug_logger.confidence_dir, f"{base_name}_confidence.png")
         displacement_path = os.path.join(debug_logger.displacement_dir, f"{base_name}_displacement.png")
         motion_vector_path = os.path.join(debug_logger.motion_vector_dir, f"{base_name}_motion_vector.png")
+        depth_ref_path = os.path.join(debug_logger.depth_dir, f"{base_name}_depth_reference.png")
+        depth_cur_path = os.path.join(debug_logger.depth_dir, f"{base_name}_depth_current.png")
+        depth_diff_path = os.path.join(debug_logger.depth_diff_dir, f"{base_name}_depth_difference.png")
+        depth_heatmap_path = os.path.join(debug_logger.depth_heatmap_dir, f"{base_name}_depth_heatmap.png")
+        depth_histogram_path = os.path.join(debug_logger.depth_histogram_dir, f"{base_name}_depth_histogram.png")
 
         save_debug_frame(img2, ref_path)
         save_debug_frame(img5, middle_path)
@@ -492,6 +546,16 @@ def schedule_stableworld_window_tri_9(
             cv2.imwrite(displacement_path, similarity_result.debug["displacement_field"])
         if similarity_result.debug.get("motion_vector") is not None:
             cv2.imwrite(motion_vector_path, similarity_result.debug["motion_vector"])
+        if similarity_result.debug.get("depth_reference") is not None:
+            cv2.imwrite(depth_ref_path, similarity_result.debug["depth_reference"])
+        if similarity_result.debug.get("depth_current") is not None:
+            cv2.imwrite(depth_cur_path, similarity_result.debug["depth_current"])
+        if similarity_result.debug.get("depth_difference_map") is not None:
+            cv2.imwrite(depth_diff_path, similarity_result.debug["depth_difference_map"])
+        if similarity_result.debug.get("depth_heatmap") is not None:
+            cv2.imwrite(depth_heatmap_path, similarity_result.debug["depth_heatmap"])
+        if similarity_result.debug.get("depth_histogram") is not None:
+            cv2.imwrite(depth_histogram_path, similarity_result.debug["depth_histogram"])
 
         debug_logger.log_decision({
             "frame_index": int(frame_index),
@@ -513,6 +577,12 @@ def schedule_stableworld_window_tri_9(
             "average_displacement": average_displacement,
             "median_displacement": median_displacement,
             "maximum_displacement": maximum_displacement,
+            "depth_runtime_ms": depth_runtime_ms,
+            "geometry_similarity": geometry_similarity,
+            "depth_difference": depth_difference,
+            "depth_metric": depth_metric_used,
+            "depth_cache_hit_reference": depth_cache_hit_reference,
+            "depth_cache_hit_current": depth_cache_hit_current,
             "estimator": similarity_estimator_name,
             "decision": decision.decision,
             "window_before": " ".join(str(x) for x in window_before),
@@ -573,6 +643,10 @@ class CausalInferencePipeline(torch.nn.Module):
         debug_output_dir: str | None = None,
         similarity_estimator_name: str = "orb",
         lightglue_spatial_alpha: float = 0.0,
+        depth_metric: str = "l1",
+        depth_model: str = "vits",
+        depth_checkpoint: str | None = None,
+        depth_cache_size: int = 256,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -605,7 +679,7 @@ class CausalInferencePipeline(torch.nn.Module):
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
             debug_logger = StableWorldDebugLogger(debug_output_dir)
-            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}")
+            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}, depth_metric={depth_metric}, depth_model={depth_model}")
             experiment_recorder = ExperimentRecorder(
                 enabled=True,
                 database_root=os.path.join(debug_output_dir, "experiment_tracking"),
@@ -615,6 +689,10 @@ class CausalInferencePipeline(torch.nn.Module):
                     "threshold": Threshold,
                     "similarity_estimator": similarity_estimator_name,
                     "lightglue_spatial_alpha": lightglue_spatial_alpha,
+                    "depth_metric": depth_metric,
+                    "depth_model": depth_model,
+                    "depth_checkpoint": depth_checkpoint,
+                    "depth_cache_size": depth_cache_size,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
                 },
@@ -731,6 +809,10 @@ class CausalInferencePipeline(torch.nn.Module):
                     frame_index=current_start_frame,
                     similarity_estimator_name=similarity_estimator_name,
                     lightglue_spatial_alpha=lightglue_spatial_alpha,
+                    depth_metric=depth_metric,
+                    depth_model=depth_model,
+                    depth_checkpoint=depth_checkpoint,
+                    depth_cache_size=depth_cache_size,
                 )
                 if debug_logger is not None:
                     debug_logger.log_event(current_start_frame, "Similarity", f"similarity={sim_min:.4f}")

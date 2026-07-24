@@ -31,8 +31,12 @@ def parse_args():
     parser.add_argument("--Threshold", type=float, default=0.78, help="Threshold")
     parser.add_argument("--stableworld_debug", action="store_true", help="Save StableWorld debug logs and ORB visualizations")
     parser.add_argument("--stableworld_debug_dir", type=str, default=None, help="Folder for StableWorld debug outputs")
-    parser.add_argument("--similarity_estimator", type=str, default="orb", choices=["orb", "lightglue"], help="Similarity estimator used by StableWorld")
+    parser.add_argument("--similarity_estimator", type=str, default="orb", choices=["orb", "lightglue", "depth"], help="Similarity estimator used by StableWorld")
     parser.add_argument("--lightglue_spatial_alpha", type=float, default=0.0, help="Spatial penalty alpha for LightGlue final similarity")
+    parser.add_argument("--depth_metric", type=str, default="l1", choices=["l1", "l2", "ssim", "gradient", "depth_gradient"], help="Depth similarity metric")
+    parser.add_argument("--depth_model", type=str, default="vits", choices=["vits", "vitb", "vitl", "vitg"], help="DepthAnythingV2 model variant")
+    parser.add_argument("--depth_checkpoint", type=str, default=None, help="Path to DepthAnythingV2 checkpoint")
+    parser.add_argument("--depth_cache_size", type=int, default=256, help="Maximum number of depth maps cached by DepthSimilarityEstimator")
     args = parser.parse_args()
     return args
 
@@ -150,7 +154,11 @@ class InteractiveGameInference:
                 debug_stableworld=self.args.stableworld_debug,
                 debug_output_dir=self.args.stableworld_debug_dir or os.path.join(self.args.output_folder, "stableworld_debug"),
                 similarity_estimator_name=self.args.similarity_estimator,
-                lightglue_spatial_alpha=self.args.lightglue_spatial_alpha
+                lightglue_spatial_alpha=self.args.lightglue_spatial_alpha,
+                depth_metric=self.args.depth_metric,
+                depth_model=self.args.depth_model,
+                depth_checkpoint=self.args.depth_checkpoint,
+                depth_cache_size=self.args.depth_cache_size
             )
 
         videos_tensor = torch.cat(videos, dim=1)
