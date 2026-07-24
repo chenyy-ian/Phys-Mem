@@ -13,6 +13,7 @@ from utils.visualize import process_video
 import torch.nn.functional as F
 from demo_utils.constant import ZERO_VAE_CACHE
 from .experiment_tracking import ExperimentRecorder
+from .stableworld_action import ActionIntentEngine
 from .stableworld_memory import MemoryBuffer, MemoryScheduler
 from .stableworld_similarity import build_similarity_estimator, orb_ransac_score_chw
 from tqdm import tqdm
@@ -154,6 +155,8 @@ class StableWorldDebugLogger:
         self.depth_diff_dir = os.path.join(output_dir, "depth_differences")
         self.depth_heatmap_dir = os.path.join(output_dir, "depth_heatmaps")
         self.depth_histogram_dir = os.path.join(output_dir, "depth_histograms")
+        self.action_dir = os.path.join(output_dir, "action_timeline")
+        self.action_engine = ActionIntentEngine(bucket_size=bucket_size)
         self.records = []
         self.events = []
         os.makedirs(self.frames_dir, exist_ok=True)
@@ -166,6 +169,7 @@ class StableWorldDebugLogger:
         os.makedirs(self.depth_diff_dir, exist_ok=True)
         os.makedirs(self.depth_heatmap_dir, exist_ok=True)
         os.makedirs(self.depth_histogram_dir, exist_ok=True)
+        os.makedirs(self.action_dir, exist_ok=True)
 
     def log_event(self, frame_index: int, stage: str, detail: str):
         item = {
@@ -190,8 +194,26 @@ class StableWorldDebugLogger:
             f" orb_ms={record['orb_runtime_ms']:.2f}"
         )
 
+    def log_action(self, frame_index: int, conditional_dict: dict, current_start_frame: int, num_frame_per_block: int, mode: str):
+        state = self.action_engine.record(
+            frame_index=frame_index,
+            conditional_dict=conditional_dict,
+            current_start_frame=current_start_frame,
+            num_frame_per_block=num_frame_per_block,
+            mode=mode,
+        )
+        self.log_event(
+            frame_index,
+            "Action Intent",
+            (
+                f"intent={state.intent_state}, confidence={state.intent_confidence:.4f}, "
+                f"rotation={state.rotation_speed:.4f}, movement={state.movement_speed:.4f}"
+            ),
+        )
+
     def save(self):
         os.makedirs(self.output_dir, exist_ok=True)
+        self.action_engine.save(self.action_dir)
         records_path = os.path.join(self.output_dir, "stableworld_frame_log.csv")
         with open(records_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
@@ -787,6 +809,13 @@ class CausalInferencePipeline(torch.nn.Module):
             generated_start_frame = current_start_frame
             if debug_logger is not None:
                 debug_logger.log_event(current_start_frame, "Action", f"using precomputed action window for latent frames {current_start_frame}-{current_start_frame + current_num_frames - 1}")
+                debug_logger.log_action(
+                    frame_index=current_start_frame,
+                    conditional_dict=conditional_dict,
+                    current_start_frame=current_start_frame,
+                    num_frame_per_block=self.num_frame_per_block,
+                    mode=mode,
+                )
 
             noisy_input = noise[
                 :, :, current_start_frame - num_input_frames:current_start_frame + current_num_frames - num_input_frames]

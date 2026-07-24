@@ -42,3 +42,9 @@ python inference.py ^
   --depth_metric l1 ^
   --depth_model vits ^
   --depth_checkpoint {DepthAnythingV2_vits_checkpoint}
+
+  Intent-aware Memory
+  python inference.py --evict_mode --stableworld_debug --similarity_estimator orb
+  python inference.py --evict_mode --stableworld_debug --similarity_estimator lightglue --lightglue_spatial_alpha 0.0
+  python inference.py --evict_mode --stableworld_debug --similarity_estimator depth --depth_metric l1 --depth_checkpoint <DepthAnythingV2权重路径>
+  

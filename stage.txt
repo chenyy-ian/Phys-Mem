@@ -64,3 +64,33 @@ Depth 相比 LightGlue
 下一步：需要 Action-aware Memory，用动作解释 depth change 是否物理合理。
 
 stage 7
+Stage7 解决的是：Depth 能感知几何世界，但不能感知玩家意图。玩家原地快速转头时，Depth 可能变化很小，甚至局部深度分布稳定，但视频记忆仍然应该“翻页”，否则旧视角 KV 会继续污染新视角生成，出现拖影、残影和方向性纹理漂移。
+核心假设是：玩家输入是未来视角变化的因果先验。Mouse rotation 和 keyboard movement 虽然不是图像相似度，但能提前说明“世界观察方式即将改变”。
+局限性
+Action 不是物理观测，只是意图信号。玩家按 W 不代表真的前进，可能撞墙、被场景阻挡，或者生成模型没有正确响应；鼠标转动也不告诉我们新视角里具体出现什么。因此 Action 不能替代 Depth。
+Depth 也不能替代 Action。Depth 描述的是已经看到的几何状态，不知道玩家下一步要做什么；原地转头、快速扫视、突然回头这类动作，Depth-only 容易低估记忆更新需求。
+所以二者是互补关系：Depth 判断“世界几何是否变了”，Action 判断“玩家是否正在要求视角/运动状态改变”。
+Reviewer 问法
+如果 Reviewer 问“为什么有 Action 还需要 Depth”，理论回答是：Action 是 cause，不是 observation。它能预测运动意图，但不能验证物理结果。Depth 是 physical evidence，能判断场景结构是否真的发生了几何变化。没有 Depth，系统会把所有强输入都当作世界变化，容易过度替换 Memory。
+如果 Reviewer 问“为什么 Depth 后还需要 Action”，理论回答是：Depth 是 state measurement，不包含 agent intent。原地转头、视角快速变化、短时间输入突变时，Depth 差异可能滞后或不明显，但 Memory 已经需要更新。因此 Action 提供了 Depth 缺失的主动控制信息。
+建议消融实验
+Depth-only vs Action Timeline 分析
+场景：玩家发呆、慢走、快跑、原地转头、左右平移。
+观察：Depth similarity、rotation_speed、movement_speed、后续拖影。
+预期：原地转头中 Depth 变化弱，但 Action rotation 强。
+
+去掉 Mouse cue
+只保留 keyboard movement。
+观察原地转头和快速扫视。
+预期：turn 类 intent recall 明显下降，证明 mouse rotation 是独立贡献。
+
+去掉 Keyboard cue
+只保留 mouse rotation。
+观察慢走、快跑、左右平移。
+预期：movement intent 区分能力下降，尤其 Walk / Run / Left / Right。
+
+Action threshold sweep
+扫描 rotation / movement threshold，统计 action trigger、误触发、漏触发。
+目标是证明 Action cue 需要 calibration，不能直接替代 Fusion 或 Depth。
+
+stage 8
