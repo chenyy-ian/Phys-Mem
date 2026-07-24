@@ -51,3 +51,10 @@ python inference.py ^
 Multi-Evidence Fusion
 python inference.py --evict_mode --stableworld_debug --similarity_estimator orb
 
+PhysMemScheduler
+tableWorld baseline 不变：
+python inference.py --evict_mode --stableworld_debug --similarity_estimator orb --memory_scheduler stableworld
+Phys-Mem：
+python inference.py --evict_mode --stableworld_debug --similarity_estimator depth --memory_scheduler physmem --depth_metric l1 --depth_checkpoint <DepthAnythingV2权重>
+也可以和 LightGlue / ORB 比较：
+python inference.py --evict_mode --stableworld_debug --similarity_estimator lightglue --memory_scheduler physmem

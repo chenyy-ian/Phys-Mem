@@ -42,6 +42,7 @@ def parse_args():
     parser.add_argument("--fusion_weight_semantic", type=float, default=0.25, help="Semantic evidence weight for fusion debug outputs")
     parser.add_argument("--fusion_weight_geometry", type=float, default=0.25, help="Geometry evidence weight for fusion debug outputs")
     parser.add_argument("--fusion_weight_intent", type=float, default=0.25, help="Intent evidence weight for fusion debug outputs")
+    parser.add_argument("--memory_scheduler", type=str, default="stableworld", choices=["stableworld", "physmem"], help="Memory scheduler used by StableWorld")
     args = parser.parse_args()
     return args
 
@@ -168,7 +169,8 @@ class InteractiveGameInference:
                 fusion_weight_appearance=self.args.fusion_weight_appearance,
                 fusion_weight_semantic=self.args.fusion_weight_semantic,
                 fusion_weight_geometry=self.args.fusion_weight_geometry,
-                fusion_weight_intent=self.args.fusion_weight_intent
+                fusion_weight_intent=self.args.fusion_weight_intent,
+                memory_scheduler_name=self.args.memory_scheduler
             )
 
         videos_tensor = torch.cat(videos, dim=1)

@@ -118,4 +118,26 @@ Fusion 输出的是 Unified Memory Score，属于证据聚合结果；MemorySche
 它们未来都可以作为新的 Geometry 或 3D Evidence 接入：只要输出 EvidenceValue(name, score, confidence, available, metadata)，FusionEngine 不需要知道底层是 DepthAnything、VGGT 还是 DUSt3R。这就是 Stage8 的主要价值：把“算法”从“证据接口”里解耦出来。
 
 stage 9
+Stage9 的创新不是“加了 Depth”或“加了 Action”，而是重新定义了 Memory Scheduling：从 StableWorld 的
+Similarity -> Threshold -> Delete Oldest / Delete Middle
+变成：
+Evidence -> Fusion -> PhysMemScheduler -> Memory State -> Memory Buffer
+这意味着 Memory 不再只是相似度阈值触发器，而是一个带状态语义的策略系统。KEEP / REFRESH / INSERT / REPLACE / EVICT 表达的是不同物理记忆操作，而不是同一个 delete 操作的两种分支。
+核心假设
+Memory collapse 的根源不是单个 similarity estimator 不够强，而是 scheduler 没有理解“为什么要保留或更新记忆”。物理世界稳定、几何不确定、玩家强意图、语义漂移，对 Memory 的需求不同，所以需要 state-aware scheduling。
+局限性
+当前 Phys-Mem 是 rule policy，不是 learned policy；状态最终仍映射到现有 tri-9 buffer 的 middle/oldest eviction，因此底层 KV 更新结构还没有完全物理化。Fusion 也仍是 debug-side aggregation，full multi-evidence 同时运行需要后续单独做 runtime 管理。
+为什么 Phys-Mem 不是 Depth 增强版
+Depth 只是 Geometry Evidence。Phys-Mem 是调度框架：它可以接 ORB、LightGlue、Depth、Action、Fusion，也可以未来接 VGGT、DUSt3R、Metric3D。Depth 替换的是证据来源，Phys-Mem 替换的是 Memory 如何被组织、解释和更新。
+建议实验
+StableWorld vs Semantic vs Physical vs Fusion vs Phys-Mem
+指标：Memory Stability、Frame Consistency、Memory Replacement、KV Update 次数、拖影率。
 
+状态消融
+禁用 REFRESH、禁用 EVICT、禁用 INSERT，观察原地转头、靠近门、快速前进、重复纹理场景中的失败模式。
+
+Policy 消融
+Rule policy vs Score policy vs future RL placeholder，验证 Phys-Mem 的贡献来自 scheduling framework，而不是某个固定阈值。
+
+Evidence 消融
+Phys-Mem + ORB、Phys-Mem + LightGlue、Phys-Mem + Depth、Phys-Mem + Fusion，证明 scheduler 和 evidence 是可解耦的。

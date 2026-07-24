@@ -15,7 +15,7 @@ from demo_utils.constant import ZERO_VAE_CACHE
 from .experiment_tracking import ExperimentRecorder
 from .stableworld_action import ActionIntentEngine
 from .stableworld_fusion import EvidenceValue, FusionBenchmark, FusionConfig, FusionEngine, FusionVisualizer
-from .stableworld_memory import MemoryBuffer, MemoryScheduler
+from .stableworld_memory import MemoryBuffer, MemoryPolicy, MemoryScheduler, PhysMemScheduler
 from .stableworld_similarity import build_similarity_estimator, orb_ransac_score_chw
 from tqdm import tqdm
 
@@ -161,6 +161,7 @@ class StableWorldDebugLogger:
         self.fusion_dir = os.path.join(output_dir, "fusion")
         self.fusion_engine = FusionEngine(fusion_config or FusionConfig())
         self.fusion_records = []
+        self.physmem_records = []
         self.last_action_state = None
         self.records = []
         self.events = []
@@ -276,11 +277,28 @@ class StableWorldDebugLogger:
                 f"weights={result.evidence_weights}"
             ),
         )
+        return result
+
+    def log_physmem(self, record: dict):
+        physmem_record = {
+            "frame_index": int(record["frame_index"]),
+            "memory_state": record.get("memory_state", "REPLACE"),
+            "decision": record.get("decision", ""),
+            "policy": record.get("policy", ""),
+            "transition": record.get("transition", ""),
+            "unified_memory_score": float(record.get("unified_memory_score", record.get("similarity", 0.0)) or 0.0),
+            "geometry_confidence": float(record.get("geometry_confidence", 0.0) or 0.0),
+            "intent_state": record.get("intent_state", "Unknown"),
+            "delete_frame": int(record.get("delete_frame", -1)),
+            "memory_size": int(record.get("memory_size", 0)),
+        }
+        self.physmem_records.append(physmem_record)
 
     def save(self):
         os.makedirs(self.output_dir, exist_ok=True)
         self.action_engine.save(self.action_dir)
         self._save_fusion()
+        self._save_physmem()
         records_path = os.path.join(self.output_dir, "stableworld_frame_log.csv")
         with open(records_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
@@ -311,6 +329,12 @@ class StableWorldDebugLogger:
                     "depth_metric",
                     "depth_cache_hit_reference",
                     "depth_cache_hit_current",
+                    "memory_state",
+                    "policy",
+                    "transition",
+                    "unified_memory_score",
+                    "geometry_confidence",
+                    "intent_state",
                     "estimator",
                     "decision",
                     "window_before",
@@ -402,6 +426,64 @@ class StableWorldDebugLogger:
                 writer.writerow(row)
 
         FusionVisualizer.save(self.fusion_records, self.fusion_dir)
+
+    def _save_physmem(self):
+        if not self.physmem_records:
+            return
+        path = os.path.join(self.output_dir, "physmem_decision_timeline.csv")
+        fieldnames = [
+            "frame_index",
+            "memory_state",
+            "decision",
+            "policy",
+            "transition",
+            "unified_memory_score",
+            "geometry_confidence",
+            "intent_state",
+            "delete_frame",
+            "memory_size",
+        ]
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(self.physmem_records)
+
+        summary_path = os.path.join(self.output_dir, "physmem_state_summary_100f.csv")
+        with open(summary_path, "w", newline="", encoding="utf-8") as f:
+            states = ["KEEP", "REFRESH", "INSERT", "REPLACE", "EVICT"]
+            writer = csv.DictWriter(f, fieldnames=["frame_bucket_start", "frame_bucket_end"] + [f"{state.lower()}_ratio" for state in states])
+            writer.writeheader()
+            buckets = {}
+            for record in self.physmem_records:
+                bucket = (record["frame_index"] // self.bucket_size) * self.bucket_size
+                buckets.setdefault(bucket, []).append(record)
+            for bucket in sorted(buckets):
+                items = buckets[bucket]
+                row = {"frame_bucket_start": bucket, "frame_bucket_end": bucket + self.bucket_size - 1}
+                for state in states:
+                    row[f"{state.lower()}_ratio"] = sum(1 for item in items if item["memory_state"] == state) / max(len(items), 1)
+                writer.writerow(row)
+
+        self._save_physmem_transition_graph()
+
+    def _save_physmem_transition_graph(self):
+        path = os.path.join(self.output_dir, "physmem_state_transition_graph.dot")
+        states = ["KEEP", "REFRESH", "INSERT", "REPLACE", "EVICT"]
+        transitions = {}
+        last = None
+        for record in self.physmem_records:
+            current = record["memory_state"]
+            if last is not None:
+                transitions[(last, current)] = transitions.get((last, current), 0) + 1
+            last = current
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("digraph PhysMemStateMachine {\n")
+            f.write("  rankdir=LR;\n")
+            for state in states:
+                f.write(f"  {state};\n")
+            for (src, dst), count in transitions.items():
+                f.write(f"  {src} -> {dst} [label=\"{count}\"];\n")
+            f.write("}\n")
 
     def _bucket_summary(self):
         if not self.records:
@@ -543,6 +625,7 @@ def decide_and_update_window_ids_tri_9(
     depth_model: str = "vits",
     depth_checkpoint: str | None = None,
     depth_cache_size: int = 256,
+    memory_scheduler_name: str = "stableworld",
 ) -> tuple[int, list, float]:
     return schedule_stableworld_window_tri_9(
         window_ids=window_ids,
@@ -558,6 +641,7 @@ def decide_and_update_window_ids_tri_9(
         depth_model=depth_model,
         depth_checkpoint=depth_checkpoint,
         depth_cache_size=depth_cache_size,
+        memory_scheduler_name=memory_scheduler_name,
     )
 
 
@@ -575,6 +659,7 @@ def schedule_stableworld_window_tri_9(
     depth_model: str = "vits",
     depth_checkpoint: str | None = None,
     depth_cache_size: int = 256,
+    memory_scheduler_name: str = "stableworld",
 ) -> tuple[int, list, float]:
     """
     StableWorld tri-9 scheduling through the refactored stack:
@@ -611,8 +696,36 @@ def schedule_stableworld_window_tri_9(
         return_debug=debug_logger is not None,
     )
 
-    scheduler = MemoryScheduler(sim_threshold=sim_threshold)
-    decision = scheduler.schedule(memory_buffer, similarity_result)
+    fusion_result = None
+    if debug_logger is not None:
+        pre_record = {
+            "frame_index": int(current_id if frame_index is None else frame_index),
+            "estimator": similarity_estimator_name,
+            "similarity": float(similarity_result.similarity),
+            "semantic_similarity": float(similarity_result.debug.get("semantic_similarity", similarity_result.similarity)),
+            "geometry_similarity": float(similarity_result.debug.get("geometry_similarity", similarity_result.similarity)),
+            "confidence": float(similarity_result.confidence),
+        }
+        fusion_result = debug_logger.log_fusion(pre_record)
+
+    if memory_scheduler_name == "physmem":
+        scheduler = PhysMemScheduler(sim_threshold=sim_threshold, policy=MemoryPolicy(stable_score=sim_threshold))
+        geometry_confidence_for_policy = float(similarity_result.confidence if similarity_estimator_name == "depth" else 1.0)
+        action_state = getattr(debug_logger, "last_action_state", None) if debug_logger is not None else None
+        intent_state_for_policy = getattr(action_state, "intent_state", "Unknown")
+        intent_confidence_for_policy = float(getattr(action_state, "intent_confidence", 0.0))
+        unified_score_for_policy = fusion_result.unified_memory_score if fusion_result is not None else float(similarity_result.similarity)
+        decision = scheduler.schedule(
+            memory_buffer,
+            similarity_result,
+            unified_memory_score=unified_score_for_policy,
+            geometry_confidence=geometry_confidence_for_policy,
+            intent_state=intent_state_for_policy,
+            intent_confidence=intent_confidence_for_policy,
+        )
+    else:
+        scheduler = MemoryScheduler(sim_threshold=sim_threshold)
+        decision = scheduler.schedule(memory_buffer, similarity_result)
     new_ids = memory_buffer.apply_decision(decision)
     min_sim = similarity_result.similarity
     frame_index = current_id if frame_index is None else frame_index
@@ -652,6 +765,7 @@ def schedule_stableworld_window_tri_9(
             keep_count=int(len(new_ids) - len(decision.delete_range)),
             runtime=runtime_ms,
             EvidenceType=similarity_estimator_name,
+            FusionWeight=float(getattr(decision, "unified_memory_score", similarity_result.similarity) or similarity_result.similarity),
             PolicyConfidence=float(decision.confidence),
             DecisionConfidence=float(similarity_result.confidence),
         )
@@ -720,13 +834,19 @@ def schedule_stableworld_window_tri_9(
             "depth_metric": depth_metric_used,
             "depth_cache_hit_reference": depth_cache_hit_reference,
             "depth_cache_hit_current": depth_cache_hit_current,
+            "memory_state": decision.memory_state,
+            "policy": decision.policy,
+            "transition": decision.transition,
+            "unified_memory_score": decision.unified_memory_score if decision.unified_memory_score is not None else similarity_result.similarity,
+            "geometry_confidence": decision.geometry_confidence if decision.geometry_confidence is not None else 0.0,
+            "intent_state": decision.intent_state or "Unknown",
             "estimator": similarity_estimator_name,
             "decision": decision.decision,
             "window_before": " ".join(str(x) for x in window_before),
             "window_after": " ".join(str(x) for x in new_ids),
         }
         debug_logger.log_decision(debug_record)
-        debug_logger.log_fusion(debug_record)
+        debug_logger.log_physmem(debug_record)
 
     return decision.evict_middle, new_ids, min_sim
 
@@ -791,6 +911,7 @@ class CausalInferencePipeline(torch.nn.Module):
         fusion_weight_semantic: float = 0.25,
         fusion_weight_geometry: float = 0.25,
         fusion_weight_intent: float = 0.25,
+        memory_scheduler_name: str = "stableworld",
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -829,7 +950,7 @@ class CausalInferencePipeline(torch.nn.Module):
             fusion_config.weights.geometry = fusion_weight_geometry
             fusion_config.weights.intent = fusion_weight_intent
             debug_logger = StableWorldDebugLogger(debug_output_dir, fusion_config=fusion_config)
-            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}, depth_metric={depth_metric}, depth_model={depth_model}")
+            debug_logger.log_event(0, "Player", f"mode={mode}, evict_mode={evict_mode}, threshold={Threshold}, similarity_estimator={similarity_estimator_name}, memory_scheduler={memory_scheduler_name}, lightglue_spatial_alpha={lightglue_spatial_alpha}, depth_metric={depth_metric}, depth_model={depth_model}")
             experiment_recorder = ExperimentRecorder(
                 enabled=True,
                 database_root=os.path.join(debug_output_dir, "experiment_tracking"),
@@ -848,6 +969,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     "fusion_weight_semantic": fusion_weight_semantic,
                     "fusion_weight_geometry": fusion_weight_geometry,
                     "fusion_weight_intent": fusion_weight_intent,
+                    "memory_scheduler": memory_scheduler_name,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
                 },
@@ -975,6 +1097,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     depth_model=depth_model,
                     depth_checkpoint=depth_checkpoint,
                     depth_cache_size=depth_cache_size,
+                    memory_scheduler_name=memory_scheduler_name,
                 )
                 if debug_logger is not None:
                     debug_logger.log_event(current_start_frame, "Similarity", f"similarity={sim_min:.4f}")
