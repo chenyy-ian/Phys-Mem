@@ -40,8 +40,9 @@ def pick(data: Dict, *names, default=""):
     return default
 
 
-def build_row(method: str, debug_dir: str, vbench: Dict, stream: Dict, dover: Dict) -> Dict:
+def build_row(method: str, debug_dir: str, vbench: Dict, stream: Dict, dover: Dict, vbench2: Dict | None = None) -> Dict:
     memory = compute_memory_metrics(debug_dir) if debug_dir else {}
+    vbench2 = vbench2 or {}
     return {
         "Method": method,
         "Runtime": memory.get("Runtime", 0.0),
@@ -55,6 +56,11 @@ def build_row(method: str, debug_dir: str, vbench: Dict, stream: Dict, dover: Di
         "TechnicalQuality": pick(dover, "technical_quality", "Technical Quality"),
         "AestheticQuality": pick(dover, "aesthetic_quality", "Aesthetic Quality"),
         "OverallQuality": pick(dover, "overall_quality", "Overall Quality"),
+        "VBench2HumanFidelity": pick(vbench2, "human_fidelity", "Human Fidelity"),
+        "VBench2Controllability": pick(vbench2, "controllability", "Controllability"),
+        "VBench2Creativity": pick(vbench2, "creativity", "Creativity"),
+        "VBench2Physics": pick(vbench2, "physics", "Physics"),
+        "VBench2Commonsense": pick(vbench2, "commonsense", "Commonsense"),
         "MemoryReplacementRate": memory.get("MemoryReplacementRate", 0.0),
         "MemoryStabilityScore": memory.get("MemoryStabilityScore", 0.0),
         "StrategyDistribution": flatten_strategy_distribution(memory.get("StrategyDistribution", {})),
@@ -73,6 +79,7 @@ def main():
     parser.add_argument("--method", required=True)
     parser.add_argument("--debug_dir", required=True, help="Method output folder or stableworld_debug folder")
     parser.add_argument("--vbench_json", default="")
+    parser.add_argument("--vbench2_json", default="")
     parser.add_argument("--stream_json", default="")
     parser.add_argument("--dover_json", default="")
     parser.add_argument("--output", default="evaluation/results/paper_results.csv")
@@ -82,6 +89,7 @@ def main():
         method=args.method,
         debug_dir=args.debug_dir,
         vbench=load_json(args.vbench_json),
+        vbench2=load_json(args.vbench2_json),
         stream=load_json(args.stream_json),
         dover=load_json(args.dover_json),
     )

@@ -54,6 +54,11 @@ Unsupported from logs alone:
 | Technical Quality | DOVER: Evaluating Video Quality from Aesthetic and Technical Perspectives | https://github.com/VQAssessment/DOVER | Generated videos and official DOVER model | Official DOVER score file | `run_dover.py` command wrapper |
 | Aesthetic Quality | DOVER | https://github.com/VQAssessment/DOVER | Generated videos and official DOVER model | Official DOVER score file | `run_dover.py` command wrapper |
 | Overall Quality | DOVER | https://github.com/VQAssessment/DOVER | Generated videos and official DOVER model | Official DOVER score file | `run_dover.py` command wrapper |
+| Human Fidelity | VBench-2.0 | https://vchitect.github.io/VBench-2.0-project/, https://github.com/Vchitect/VBench/tree/master/VBench-2.0 | Generated videos and official VBench-2.0 assets | Official VBench-2.0 score file | `run_vbench2.py` wrapper |
+| Controllability | VBench-2.0 | https://vchitect.github.io/VBench-2.0-project/, https://github.com/Vchitect/VBench/tree/master/VBench-2.0 | Generated videos and official VBench-2.0 assets | Official VBench-2.0 score file | `run_vbench2.py` wrapper |
+| Creativity | VBench-2.0 | https://vchitect.github.io/VBench-2.0-project/, https://github.com/Vchitect/VBench/tree/master/VBench-2.0 | Generated videos and official VBench-2.0 assets | Official VBench-2.0 score file | `run_vbench2.py` wrapper |
+| Physics | VBench-2.0 | https://vchitect.github.io/VBench-2.0-project/, https://github.com/Vchitect/VBench/tree/master/VBench-2.0 | Generated videos and official VBench-2.0 assets | Official VBench-2.0 score file | `run_vbench2.py` wrapper |
+| Commonsense | VBench-2.0 | https://vchitect.github.io/VBench-2.0-project/, https://github.com/Vchitect/VBench/tree/master/VBench-2.0 | Generated videos and official VBench-2.0 assets | Official VBench-2.0 score file | `run_vbench2.py` wrapper |
 
 ## Recommended Table
 
@@ -75,6 +80,15 @@ VBench:
 python evaluation/run_vbench.py \
   --video_dir outputs_v2/physmem_kv_stress \
   --output_dir evaluation/results/physmem/vbench
+```
+
+VBench-2.0:
+
+```bash
+python evaluation/run_vbench2.py \
+  --video_dir outputs_v2/physmem_kv_stress \
+  --vbench2_repo /path/to/VBench/VBench-2.0 \
+  --output evaluation/results/physmem/vbench2.json
 ```
 
 DOVER:
@@ -112,6 +126,7 @@ python evaluation/aggregate_metrics.py \
   --method PhysMem \
   --debug_dir outputs_v2/physmem_kv_stress/stableworld_debug \
   --vbench_json evaluation/results/physmem/vbench/vbench_metrics.json \
+  --vbench2_json evaluation/results/physmem/vbench2.json \
   --stream_json evaluation/results/physmem/stream.json \
   --dover_json evaluation/results/physmem/dover.json \
   --output evaluation/results/paper_results.csv
