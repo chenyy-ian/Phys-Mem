@@ -120,10 +120,8 @@ class MemoryPolicy:
     name: str = "physmem_rule"
     stable_score: float = 0.78
     refresh_score: float = 0.58
-    refresh_anchor_score: float = 0.66
-    reliable_geometry_confidence: float = 0.88
     low_geometry_confidence: float = 0.35
-    high_intent_confidence: float = 0.50
+    high_intent_confidence: float = 0.70
     active_intents: set[str] = field(default_factory=lambda: {
         "Walk",
         "Run",
@@ -150,11 +148,6 @@ class DecisionRule:
                 and context["intent_confidence"] >= policy.high_intent_confidence
             ),
             "geometry_uncertain": lambda: context["geometry_confidence"] < policy.low_geometry_confidence,
-            "anchor_unreliable": lambda: (
-                context["unified_memory_score"] < policy.refresh_anchor_score
-                and context["geometry_confidence"] >= policy.reliable_geometry_confidence
-                and context["intent_state"] not in {"Turn Left", "Turn Right"}
-            ),
             "stable_world": lambda: context["unified_memory_score"] >= policy.stable_score,
             "transitional_world": lambda: context["unified_memory_score"] >= policy.refresh_score,
             "active_motion": lambda: context["intent_state"] in policy.active_intents,
@@ -169,7 +162,6 @@ class MemoryStateMachine:
         self.rules = sorted([
             DecisionRule("intent_turn", "EVICT", 100),
             DecisionRule("geometry_uncertain", "REFRESH", 90),
-            DecisionRule("anchor_unreliable", "REFRESH", 85),
             DecisionRule("stable_world", "KEEP", 80),
             DecisionRule("transitional_world", "INSERT", 70),
             DecisionRule("active_motion", "REPLACE", 60),

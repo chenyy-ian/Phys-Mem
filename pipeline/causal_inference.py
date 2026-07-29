@@ -639,7 +639,7 @@ def schedule_stableworld_window_tri_9(
     evidence_collector: EvidenceCollector | None = None,
     num_frame_per_block: int = 1,
     mode: str = "universal",
-) -> tuple[int, list, float]:
+) -> tuple[int, list, float, str]:
     """
     StableWorld tri-9 scheduling through the refactored stack:
     SimilarityEstimator -> MemoryScheduler -> MemoryBuffer.
