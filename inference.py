@@ -44,6 +44,7 @@ def parse_args():
     parser.add_argument("--fusion_weight_intent", type=float, default=0.25, help="Intent evidence weight for fusion debug outputs")
     parser.add_argument("--memory_scheduler", type=str, default="stableworld", choices=["stableworld", "physmem"], help="Memory scheduler used by StableWorld")
     parser.add_argument("--evidence_mode", type=str, default="single", choices=["single", "multi", "fusion", "physmem"], help="Evidence collection mode. Use single for baseline comparisons and multi for full Phys-Mem.")
+    parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress"], help="Action preset used to build keyboard/mouse conditions")
     args = parser.parse_args()
     return args
 
@@ -136,16 +137,15 @@ class InteractiveGameInference:
         }
         
         if mode == 'universal':
-            cond_data = Bench_actions_universal(num_frames)
-            # cond_data = Bench_actions_static(num_frames)
+            cond_data = build_bench_actions(mode, num_frames, self.args.action_preset)
             mouse_condition = cond_data['mouse_condition'].unsqueeze(0).to(device=self.device, dtype=self.weight_dtype)
             conditional_dict['mouse_cond'] = mouse_condition
         elif mode == 'gta_drive':
-            cond_data = Bench_actions_gta_drive(num_frames)
+            cond_data = build_bench_actions(mode, num_frames, self.args.action_preset)
             mouse_condition = cond_data['mouse_condition'].unsqueeze(0).to(device=self.device, dtype=self.weight_dtype)
             conditional_dict['mouse_cond'] = mouse_condition
         else:
-            cond_data = Bench_actions_templerun(num_frames)
+            cond_data = build_bench_actions(mode, num_frames, self.args.action_preset)
         keyboard_condition = cond_data['keyboard_condition'].unsqueeze(0).to(device=self.device, dtype=self.weight_dtype)
         conditional_dict['keyboard_cond'] = keyboard_condition
         

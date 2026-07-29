@@ -96,6 +96,7 @@ class CausalWanSelfAttention(nn.Module):
         current_start=0,
         cache_start=None,
         evict_middle=None,
+        kv_policy=None,
     ):
         r"""
         Args:
@@ -172,9 +173,25 @@ class CausalWanSelfAttention(nn.Module):
                 num_rolled_tokens = kv_cache["local_end_index"].item() - num_evicted_tokens - sink_tokens
                 local_end_old = kv_cache["local_end_index"].item() 
 
-                evict_from_middle = evict_middle
+                policy_to_evict_mode = {
+                    "preserve_anchor": 1,
+                    "refresh_uncertain": 6,
+                    "append_compact": 2,
+                    "replace_stale": 0,
+                }
+                evict_from_middle = policy_to_evict_mode.get(kv_policy, evict_middle)
                 # evict_from_middle = 0
-                if  evict_from_middle == 0:
+                if kv_policy == "hard_evict":
+                    frames_in_cache = max(0, (local_end_old - sink_tokens) // frame_seqlen)
+                    keep_frames = min(2, frames_in_cache)
+                    keep_tokens = keep_frames * frame_seqlen
+                    if keep_tokens > 0:
+                        keep_start = local_end_old - keep_tokens
+                        kv_cache["k"][:, sink_tokens:sink_tokens + keep_tokens] = kv_cache["k"][:, keep_start:local_end_old].clone()
+                        kv_cache["v"][:, sink_tokens:sink_tokens + keep_tokens] = kv_cache["v"][:, keep_start:local_end_old].clone()
+                    local_end_old = sink_tokens + keep_tokens
+                    num_evicted_tokens = max(0, kv_cache["local_end_index"].item() - local_end_old)
+                elif  evict_from_middle == 0:
                     # 3A) 按原逻辑：丢老端（从 sink_tokens 开始丢 num_evicted_tokens）
                     kv_cache["k"][:, sink_tokens:sink_tokens + num_rolled_tokens] = \
                         kv_cache["k"][:, sink_tokens + num_evicted_tokens:sink_tokens + num_evicted_tokens + num_rolled_tokens].clone()
@@ -347,7 +364,8 @@ class CausalWanAttentionBlock(nn.Module):
         current_start=0,
         cache_start=None,
         context_lens=None,
-        evict_middle=None
+        evict_middle=None,
+        kv_policy=None,
     ):
         r"""
         Args:
@@ -365,17 +383,17 @@ class CausalWanAttentionBlock(nn.Module):
         y = self.self_attn(
             (self.norm1(x).unflatten(dim=1, sizes=(num_frames, frame_seqlen)) * (1 + e[1]) + e[0]).flatten(1, 2),
             seq_lens, grid_sizes,
-            freqs, block_mask, kv_cache, current_start, cache_start,evict_middle=evict_middle)
+            freqs, block_mask, kv_cache, current_start, cache_start, evict_middle=evict_middle, kv_policy=kv_policy)
 
 
         x = x + (y.unflatten(dim=1, sizes=(num_frames, frame_seqlen)) * e[2]).flatten(1, 2)
 
         # cross-attention & ffn function
-        def cross_attn_ffn(x, context, e, mouse_cond, keyboard_cond, block_mask_mouse, block_mask_keyboard, kv_cache_mouse=None, kv_cache_keyboard=None, crossattn_cache=None, start_frame=0, use_rope_keyboard=False, num_frame_per_block=3):
+        def cross_attn_ffn(x, context, e, mouse_cond, keyboard_cond, block_mask_mouse, block_mask_keyboard, kv_cache_mouse=None, kv_cache_keyboard=None, crossattn_cache=None, start_frame=0, use_rope_keyboard=False, num_frame_per_block=3, kv_policy=None):
             x = x + self.cross_attn(self.norm3(x.to(context.dtype)), context, crossattn_cache=crossattn_cache)
             if self.action_model is not None:
                 assert mouse_cond is not None or keyboard_cond is not None
-                x = self.action_model(x.to(context.dtype), grid_sizes[0], grid_sizes[1], grid_sizes[2], mouse_cond, keyboard_cond, block_mask_mouse, block_mask_keyboard, is_causal=True, kv_cache_mouse=kv_cache_mouse, kv_cache_keyboard=kv_cache_keyboard, start_frame=start_frame, use_rope_keyboard=use_rope_keyboard, num_frame_per_block=num_frame_per_block)
+                x = self.action_model(x.to(context.dtype), grid_sizes[0], grid_sizes[1], grid_sizes[2], mouse_cond, keyboard_cond, block_mask_mouse, block_mask_keyboard, is_causal=True, kv_cache_mouse=kv_cache_mouse, kv_cache_keyboard=kv_cache_keyboard, start_frame=start_frame, use_rope_keyboard=use_rope_keyboard, num_frame_per_block=num_frame_per_block, kv_policy=kv_policy)
             
             y = self.ffn(
                 (self.norm2(x).unflatten(dim=1, sizes=(num_frames,
@@ -386,7 +404,7 @@ class CausalWanAttentionBlock(nn.Module):
                      frame_seqlen)) * e[5]).flatten(1, 2)
             return x
         assert grid_sizes.ndim == 1
-        x = cross_attn_ffn(x, context, e, mouse_cond, keyboard_cond, block_mask_mouse, block_mask_keyboard, kv_cache_mouse, kv_cache_keyboard, crossattn_cache, start_frame=current_start // math.prod(grid_sizes[1:]).item(), use_rope_keyboard=use_rope_keyboard, num_frame_per_block=num_frame_per_block)
+        x = cross_attn_ffn(x, context, e, mouse_cond, keyboard_cond, block_mask_mouse, block_mask_keyboard, kv_cache_mouse, kv_cache_keyboard, crossattn_cache, start_frame=current_start // math.prod(grid_sizes[1:]).item(), use_rope_keyboard=use_rope_keyboard, num_frame_per_block=num_frame_per_block, kv_policy=kv_policy)
         return x
 
 
@@ -708,7 +726,8 @@ class CausalWanModel(ModelMixin, ConfigMixin, FromOriginalModelMixin, PeftAdapte
         crossattn_cache: dict = None,
         current_start: int = 0,
         cache_start: int = 0,
-        evict_middle=None
+        evict_middle=None,
+        kv_policy=None,
     ):
         r"""
         Run the diffusion model with kv caching.
@@ -773,7 +792,8 @@ class CausalWanModel(ModelMixin, ConfigMixin, FromOriginalModelMixin, PeftAdapte
             block_mask_keyboard=self.block_mask_keyboard,
             use_rope_keyboard=self.use_rope_keyboard,
             num_frame_per_block=self.num_frame_per_block,
-            evict_middle=evict_middle
+            evict_middle=evict_middle,
+            kv_policy=kv_policy,
         )
 
         def create_custom_forward(module):

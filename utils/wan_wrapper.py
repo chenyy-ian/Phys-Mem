@@ -147,7 +147,8 @@ class WanDiffusionWrapper(torch.nn.Module):
         crossattn_cache: Optional[List[dict]] = None,
         current_start: Optional[int] = None,
         cache_start: Optional[int] = None,
-        evict_middle=None
+        evict_middle=None,
+        kv_policy=None
     ) -> torch.Tensor:
     
         assert noisy_image_or_video.shape[1] == 16
@@ -168,7 +169,8 @@ class WanDiffusionWrapper(torch.nn.Module):
                 crossattn_cache=crossattn_cache,
                 current_start=current_start,
                 cache_start=cache_start,
-                evict_middle=evict_middle
+                evict_middle=evict_middle,
+                kv_policy=kv_policy
             )#.permute(0, 2, 1, 3, 4)
             
         else:

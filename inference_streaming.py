@@ -26,6 +26,7 @@ def parse_args():
                         help="Max number of output latent frames")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--pretrained_model_path", type=str, default="Matrix-Game-2.0", help="Path to the VAE model folder")
+    parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress"], help="Action preset used to build keyboard/mouse conditions")
     args = parser.parse_args()
     return args
 
@@ -124,15 +125,15 @@ class InteractiveGameInference:
         }
         
         if mode == 'universal':
-            cond_data = Bench_actions_universal(num_frames)
+            cond_data = build_bench_actions(mode, num_frames, self.args.action_preset)
             mouse_condition = cond_data['mouse_condition'].unsqueeze(0).to(device=self.device, dtype=self.weight_dtype)
             conditional_dict['mouse_cond'] = mouse_condition
         elif mode == 'gta_drive':
-            cond_data = Bench_actions_gta_drive(num_frames)
+            cond_data = build_bench_actions(mode, num_frames, self.args.action_preset)
             mouse_condition = cond_data['mouse_condition'].unsqueeze(0).to(device=self.device, dtype=self.weight_dtype)
             conditional_dict['mouse_cond'] = mouse_condition
         else:
-            cond_data = Bench_actions_templerun(num_frames)
+            cond_data = build_bench_actions(mode, num_frames, self.args.action_preset)
         keyboard_condition = cond_data['keyboard_condition'].unsqueeze(0).to(device=self.device, dtype=self.weight_dtype)
         conditional_dict['keyboard_cond'] = keyboard_condition
         

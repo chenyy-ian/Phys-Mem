@@ -15,6 +15,29 @@ except:
     FLASH_ATTN_3_AVAILABLE = False
 
 
+def apply_action_kv_policy(kv_cache, sink_tokens, num_new_tokens, kv_cache_size, kv_policy):
+    local_end_old = kv_cache["local_end_index"].item()
+    overflow_tokens = num_new_tokens + local_end_old - kv_cache_size
+    if kv_policy == "hard_evict":
+        keep_tokens = min(2, max(0, local_end_old - sink_tokens))
+        if keep_tokens > 0:
+            keep_start = local_end_old - keep_tokens
+            kv_cache["k"][:, sink_tokens:sink_tokens + keep_tokens] = kv_cache["k"][:, keep_start:local_end_old].clone()
+            kv_cache["v"][:, sink_tokens:sink_tokens + keep_tokens] = kv_cache["v"][:, keep_start:local_end_old].clone()
+        return max(0, kv_cache["local_end_index"].item() - (sink_tokens + keep_tokens))
+    if kv_policy == "refresh_uncertain":
+        available_tokens = max(0, local_end_old - sink_tokens)
+        evicted_tokens = max(overflow_tokens, available_tokens // 2)
+        evicted_tokens = min(evicted_tokens, available_tokens)
+    else:
+        evicted_tokens = overflow_tokens
+    rolled_tokens = local_end_old - evicted_tokens - sink_tokens
+    if rolled_tokens > 0:
+        kv_cache["k"][:, sink_tokens:sink_tokens + rolled_tokens] = kv_cache["k"][:, sink_tokens + evicted_tokens:sink_tokens + evicted_tokens + rolled_tokens].clone()
+        kv_cache["v"][:, sink_tokens:sink_tokens + rolled_tokens] = kv_cache["v"][:, sink_tokens + evicted_tokens:sink_tokens + evicted_tokens + rolled_tokens].clone()
+    return evicted_tokens
+
+
 DISABLE_COMPILE = False  # get os env
 flex_attention = torch.compile(
     flex_attention, dynamic=False, mode="max-autotune-no-cudagraphs")
@@ -191,7 +214,7 @@ class ActionModule(nn.Module):
         )
         return freqs_cos[-video_length*rope_sizes[1]*rope_sizes[2]//self.patch_size[0]:], freqs_sin[-video_length*rope_sizes[1]*rope_sizes[2]//self.patch_size[0]:]
 
-    def forward(self, x, tt, th, tw, mouse_condition=None, keyboard_condition=None, block_mask_mouse=None, block_mask_keyboard=None, is_causal=False, kv_cache_mouse=None, kv_cache_keyboard=None, start_frame=0, use_rope_keyboard=True, num_frame_per_block=3):
+    def forward(self, x, tt, th, tw, mouse_condition=None, keyboard_condition=None, block_mask_mouse=None, block_mask_keyboard=None, is_causal=False, kv_cache_mouse=None, kv_cache_keyboard=None, start_frame=0, use_rope_keyboard=True, num_frame_per_block=3, kv_policy=None):
         '''
         hidden_states: B, tt*th*tw, C
         mouse_condition: B, N_frames, C1
@@ -287,12 +310,7 @@ class ActionModule(nn.Module):
 
                     if (current_end > kv_cache_mouse["global_end_index"].item()) and (
                         num_new_tokens + kv_cache_mouse["local_end_index"].item() > kv_cache_size):
-                        num_evicted_tokens = num_new_tokens + kv_cache_mouse["local_end_index"].item() - kv_cache_size
-                        num_rolled_tokens = kv_cache_mouse["local_end_index"].item() - num_evicted_tokens - sink_tokens
-                        kv_cache_mouse["k"][:, sink_tokens:sink_tokens + num_rolled_tokens] = \
-                            kv_cache_mouse["k"][:, sink_tokens + num_evicted_tokens:sink_tokens + num_evicted_tokens + num_rolled_tokens].clone()
-                        kv_cache_mouse["v"][:, sink_tokens:sink_tokens + num_rolled_tokens] = \
-                            kv_cache_mouse["v"][:, sink_tokens + num_evicted_tokens:sink_tokens + num_evicted_tokens + num_rolled_tokens].clone()
+                        num_evicted_tokens = apply_action_kv_policy(kv_cache_mouse, sink_tokens, num_new_tokens, kv_cache_size, kv_policy)
                         # Insert the new keys/values at the end
                         local_end_index = kv_cache_mouse["local_end_index"].item() + current_end - \
                             kv_cache_mouse["global_end_index"].item() - num_evicted_tokens
@@ -413,12 +431,7 @@ class ActionModule(nn.Module):
 
                         if (current_end > kv_cache_keyboard["global_end_index"].item()) and (
                             num_new_tokens + kv_cache_keyboard["local_end_index"].item() > kv_cache_size):
-                            num_evicted_tokens = num_new_tokens + kv_cache_keyboard["local_end_index"].item() - kv_cache_size
-                            num_rolled_tokens = kv_cache_keyboard["local_end_index"].item() - num_evicted_tokens - sink_tokens
-                            kv_cache_keyboard["k"][:, sink_tokens:sink_tokens + num_rolled_tokens] = \
-                                kv_cache_keyboard["k"][:, sink_tokens + num_evicted_tokens:sink_tokens + num_evicted_tokens + num_rolled_tokens].clone()
-                            kv_cache_keyboard["v"][:, sink_tokens:sink_tokens + num_rolled_tokens] = \
-                                kv_cache_keyboard["v"][:, sink_tokens + num_evicted_tokens:sink_tokens + num_evicted_tokens + num_rolled_tokens].clone()
+                            num_evicted_tokens = apply_action_kv_policy(kv_cache_keyboard, sink_tokens, num_new_tokens, kv_cache_size, kv_policy)
                             # Insert the new keys/values at the end
                             local_end_index = kv_cache_keyboard["local_end_index"].item() + current_end - \
                                 kv_cache_keyboard["global_end_index"].item() - num_evicted_tokens
@@ -494,12 +507,7 @@ class ActionModule(nn.Module):
 
                         if (current_end > kv_cache_keyboard["global_end_index"].item()) and (
                             num_new_tokens + kv_cache_keyboard["local_end_index"].item() > kv_cache_size):
-                            num_evicted_tokens = num_new_tokens + kv_cache_keyboard["local_end_index"].item() - kv_cache_size
-                            num_rolled_tokens = kv_cache_keyboard["local_end_index"].item() - num_evicted_tokens - sink_tokens
-                            kv_cache_keyboard["k"][:, sink_tokens:sink_tokens + num_rolled_tokens] = \
-                                kv_cache_keyboard["k"][:, sink_tokens + num_evicted_tokens:sink_tokens + num_evicted_tokens + num_rolled_tokens].clone()
-                            kv_cache_keyboard["v"][:, sink_tokens:sink_tokens + num_rolled_tokens] = \
-                                kv_cache_keyboard["v"][:, sink_tokens + num_evicted_tokens:sink_tokens + num_evicted_tokens + num_rolled_tokens].clone()
+                            num_evicted_tokens = apply_action_kv_policy(kv_cache_keyboard, sink_tokens, num_new_tokens, kv_cache_size, kv_policy)
                             # Insert the new keys/values at the end
                             local_end_index = kv_cache_keyboard["local_end_index"].item() + current_end - \
                                 kv_cache_keyboard["global_end_index"].item() - num_evicted_tokens

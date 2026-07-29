@@ -595,7 +595,7 @@ def decide_and_update_window_ids_tri_9(
     evidence_collector: EvidenceCollector | None = None,
     num_frame_per_block: int = 1,
     mode: str = "universal",
-) -> tuple[int, list, float]:
+) -> tuple[int, list, float, str]:
     return schedule_stableworld_window_tri_9(
         window_ids=window_ids,
         videos=videos,
@@ -651,7 +651,7 @@ def schedule_stableworld_window_tri_9(
     if L < 7:
         evict_middle = 0
         new_ids = window_ids[3:] + [memory_buffer.last_id + 1, memory_buffer.last_id + 2, memory_buffer.last_id + 3]
-        return evict_middle, new_ids, 0.0
+        return evict_middle, new_ids, 0.0, "legacy"
 
     id2 = memory_buffer.reference_frame_id
     id5 = memory_buffer.middle_frame_id
@@ -834,7 +834,7 @@ def schedule_stableworld_window_tri_9(
         debug_logger.log_decision(debug_record)
         debug_logger.log_physmem(debug_record)
 
-    return decision.evict_middle, new_ids, min_sim
+    return decision.evict_middle, new_ids, min_sim, decision.kv_policy
 
 
 class CausalInferencePipeline(torch.nn.Module):
@@ -1050,6 +1050,7 @@ class CausalInferencePipeline(torch.nn.Module):
 
 
         evict_middle=0
+        kv_policy = "legacy"
         all_num_frames = [self.num_frame_per_block] * num_blocks
 
         window_ids=[0,1,2,3,4,5,6,7,8]
@@ -1076,7 +1077,7 @@ class CausalInferencePipeline(torch.nn.Module):
                 if debug_logger is not None:
                     debug_logger.log_event(current_start_frame, "Evidence Collector", f"checking window={window_ids}, evidence_mode={evidence_mode}, primary={similarity_estimator_name}")
 
-                evict_middle, window_ids, sim_min = schedule_stableworld_window_tri_9(
+                evict_middle, window_ids, sim_min, kv_policy = schedule_stableworld_window_tri_9(
                     window_ids=window_ids,
                     videos=videos,         
                     conditional_dict=conditional_dict,
@@ -1098,7 +1099,7 @@ class CausalInferencePipeline(torch.nn.Module):
                 )
                 if debug_logger is not None:
                     debug_logger.log_event(current_start_frame, "Similarity", f"similarity={sim_min:.4f}")
-                    debug_logger.log_event(current_start_frame, "Memory Decision", f"evict_middle={evict_middle}, updated_window={window_ids}")
+                    debug_logger.log_event(current_start_frame, "Memory Decision", f"evict_middle={evict_middle}, kv_policy={kv_policy}, updated_window={window_ids}")
 
             for index, current_timestep in enumerate(self.denoising_step_list):
                 if debug_logger is not None and index == 0:
@@ -1119,7 +1120,8 @@ class CausalInferencePipeline(torch.nn.Module):
                         kv_cache_keyboard=self.kv_cache_keyboard,
                         crossattn_cache=self.crossattn_cache,
                         current_start=current_start_frame * self.frame_seq_length,
-                        evict_middle=evict_middle
+                        evict_middle=evict_middle,
+                        kv_policy=kv_policy
                     )
                     next_timestep = self.denoising_step_list[index + 1]
                     noisy_input = self.scheduler.add_noise(
@@ -1140,7 +1142,8 @@ class CausalInferencePipeline(torch.nn.Module):
                         kv_cache_keyboard=self.kv_cache_keyboard,
                         crossattn_cache=self.crossattn_cache,
                         current_start=current_start_frame * self.frame_seq_length,
-                        evict_middle=evict_middle
+                        evict_middle=evict_middle,
+                        kv_policy=kv_policy
                     )
 
             B, C, F_blk, H, W = denoised_pred.shape   # 例如 [1,16,3,44,80]
@@ -1160,10 +1163,11 @@ class CausalInferencePipeline(torch.nn.Module):
                 kv_cache_keyboard=self.kv_cache_keyboard,
                 crossattn_cache=self.crossattn_cache,
                 current_start=current_start_frame * self.frame_seq_length,
-                evict_middle=evict_middle
+                evict_middle=evict_middle,
+                kv_policy=kv_policy
             )
             if debug_logger is not None:
-                debug_logger.log_event(current_start_frame, "KV Update", f"context pass wrote latent frames {current_start_frame}-{current_start_frame + current_num_frames - 1}, evict_middle={evict_middle}")
+                debug_logger.log_event(current_start_frame, "KV Update", f"context pass wrote latent frames {current_start_frame}-{current_start_frame + current_num_frames - 1}, evict_middle={evict_middle}, kv_policy={kv_policy}")
 
             current_start_frame += current_num_frames
             denoised_pred = denoised_pred.transpose(1,2)

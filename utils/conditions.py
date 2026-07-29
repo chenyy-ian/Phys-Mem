@@ -211,6 +211,98 @@ def Bench_actions_static(num_frames):
     return {"keyboard_condition": keyboard_condition,
             "mouse_condition":   mouse_condition}
 
+def Bench_actions_physmem_stress(num_frames):
+    """
+    Universal-mode action preset for PhysMem stress tests.
+
+    The sequence starts with ordinary Matrix-Game actions, then injects a
+    high-motion segment with sustained turns and rapid left/right changes,
+    and finally returns to a smoother motion segment. Mouse deltas represent
+    camera motion rather than metric angles; the sustained turn blocks are the
+    preset's approximation of a 180-degree rotation.
+    """
+    assert num_frames % 4 == 1
+    keyboard_condition = torch.zeros((num_frames, 4))
+    mouse_condition = torch.zeros((num_frames, 2))
+
+    KEYBOARD = {
+        "idle": [0, 0, 0, 0],
+        "forward": [1, 0, 0, 0],
+        "back": [0, 1, 0, 0],
+        "left": [0, 0, 1, 0],
+        "right": [0, 0, 0, 1],
+        "forward_left": [1, 0, 1, 0],
+        "forward_right": [1, 0, 0, 1],
+    }
+    MOUSE = {
+        "none": [0.0, 0.0],
+        "turn_left": [0.0, -0.12],
+        "turn_right": [0.0, 0.12],
+        "hard_left": [0.0, -0.18],
+        "hard_right": [0.0, 0.18],
+    }
+    blocks = [
+        # Ordinary warm-up, similar to the original universal preset.
+        ("forward", "none", 12),
+        ("forward_left", "none", 12),
+        ("forward_right", "none", 12),
+        ("left", "none", 8),
+        ("right", "none", 8),
+
+        # Stress segment: sustained turn approximates a 180-degree rotation.
+        ("idle", "hard_left", 24),
+        ("left", "hard_right", 8),
+        ("right", "hard_left", 8),
+        ("left", "hard_right", 8),
+        ("right", "hard_left", 8),
+        ("idle", "hard_right", 24),
+        ("back", "turn_left", 8),
+        ("forward", "turn_right", 8),
+
+        # Recovery segment with smoother motion.
+        ("forward", "none", 12),
+        ("forward_left", "none", 12),
+        ("forward_right", "none", 12),
+        ("forward", "turn_left", 8),
+        ("forward", "turn_right", 8),
+    ]
+
+    cur = 0
+    first = True
+    while cur < num_frames:
+        for keyboard_name, mouse_name, duration in blocks:
+            if cur >= num_frames:
+                break
+            block_len = 1 if first else duration
+            block_len = min(block_len, num_frames - cur)
+            keyboard_condition[cur:cur + block_len] = torch.tensor(KEYBOARD[keyboard_name], dtype=keyboard_condition.dtype)
+            mouse_condition[cur:cur + block_len] = torch.tensor(MOUSE[mouse_name], dtype=mouse_condition.dtype)
+            cur += block_len
+            first = False
+
+    return {
+        "keyboard_condition": keyboard_condition,
+        "mouse_condition": mouse_condition,
+    }
+
+def build_bench_actions(mode, num_frames, action_preset="default"):
+    if action_preset == "default":
+        if mode == "universal":
+            return Bench_actions_universal(num_frames)
+        if mode == "gta_drive":
+            return Bench_actions_gta_drive(num_frames)
+        if mode == "templerun":
+            return Bench_actions_templerun(num_frames)
+    if action_preset == "static":
+        if mode != "universal":
+            raise ValueError("static action preset is only available for universal mode")
+        return Bench_actions_static(num_frames)
+    if action_preset == "physmem_stress":
+        if mode != "universal":
+            raise ValueError("physmem_stress action preset is only available for universal mode")
+        return Bench_actions_physmem_stress(num_frames)
+    raise ValueError(f"Unknown action_preset: {action_preset}")
+
 def Bench_actions_gta_drive(num_frames, num_samples_per_action=4):
     actions_single_action = [
         "forward",
