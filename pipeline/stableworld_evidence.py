@@ -59,6 +59,18 @@ class EvidenceCollector:
         return [self.primary_estimator_name]
 
     @staticmethod
+    def _action_explanation(action_state: ActionState) -> str:
+        if action_state.intent_state in {"Turn Left", "Turn Right"} or action_state.rotation_speed > 0:
+            return "viewpoint_change"
+        if action_state.intent_state in {"Forward", "Backward", "Left", "Right", "Walk", "Run"}:
+            return "locomotion"
+        if action_state.intent_state == "Jump":
+            return "vertical_motion"
+        if action_state.intent_state == "Idle":
+            return "idle"
+        return "unknown"
+
+    @staticmethod
     def _result_to_evidence(name: str, result: SimilarityResult) -> EvidenceValue:
         if name == "orb":
             return EvidenceValue(
@@ -124,6 +136,7 @@ class EvidenceCollector:
             primary_result = next(iter(similarity_results.values()))
 
         intent_score = FusionEngine.intent_to_memory_score(action_state.intent_state, action_state.intent_confidence)
+        action_explanation = self._action_explanation(action_state)
         evidences["intent"] = EvidenceValue(
             name="intent",
             score=intent_score,
@@ -131,6 +144,9 @@ class EvidenceCollector:
             available=True,
             metadata={
                 "intent_state": action_state.intent_state,
+                "action_explanation": action_explanation,
+                "is_viewpoint_change": action_explanation == "viewpoint_change",
+                "is_world_change_evidence": False,
                 "rotation_speed": float(action_state.rotation_speed),
                 "movement_speed": float(action_state.movement_speed),
             },

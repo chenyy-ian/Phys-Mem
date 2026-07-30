@@ -86,7 +86,7 @@ class EvidenceValidator:
         scores = getattr(fusion_result, "evidence_scores", {}) if fusion_result is not None else {}
         semantic = float(report.get("semantic_consistency", scores.get("semantic", proposal.appearance_score) or 0.0))
         geometry = float(report.get("geometry_consistency", scores.get("geometry", 1.0) or 1.0))
-        explanation = str(report.get("intent_explanation", self._intent_explanation(intent_state)))
+        explanation = self._normalize_intent_explanation(str(report.get("intent_explanation", self._intent_explanation(intent_state))))
         world_change = float(report.get("world_change_probability", 1.0 - proposal.appearance_score))
 
         validation = EvidenceValidation(
@@ -120,22 +120,26 @@ class EvidenceValidator:
         intent_confidence: float,
         world_change_probability: float,
     ) -> str:
-        if explanation == "camera_motion" and intent_confidence >= 0.50:
+        if explanation == "viewpoint_change" and intent_confidence >= 0.30:
             return "support" if proposal.state == "KEEP" else "reject"
         if explanation in {"locomotion", "vertical_motion"} and intent_confidence >= 0.50:
-            if proposal.state == "INSERT" and world_change_probability >= 0.25:
+            if proposal.state == "KEEP":
                 return "support"
             return "neutral"
-        if world_change_probability >= 0.65:
-            return "support" if proposal.state == "INSERT" else "reject"
         return "neutral"
+
+    @staticmethod
+    def _normalize_intent_explanation(explanation: str) -> str:
+        if explanation == "camera_motion":
+            return "viewpoint_change"
+        return explanation
 
     @staticmethod
     def _intent_explanation(intent_state: str) -> str:
         if intent_state in {"Idle", ""}:
             return "idle"
         if intent_state in {"Turn Left", "Turn Right"}:
-            return "camera_motion"
+            return "viewpoint_change"
         if intent_state in {"Forward", "Backward", "Left", "Right", "Walk", "Run"}:
             return "locomotion"
         if intent_state == "Jump":
@@ -192,11 +196,12 @@ class PhysMemStateMachine:
                 return "INSERT", "proposal_keep_soft_reject"
             return "KEEP", "proposal_keep_validated"
 
-        if validation.intent == "reject" and validation.intent_explanation == "camera_motion":
+        if validation.intent == "reject" and validation.intent_explanation == "viewpoint_change":
             return "KEEP", "proposal_insert_explained_by_camera_motion"
         if validation.semantic == "support" and validation.geometry == "support":
             return "INSERT", "proposal_insert_validated"
-        if validation.world_change_probability >= self.stability.evict_enter_probability and validation.support_count >= 2:
+        physical_support_count = sum(1 for item in (validation.semantic, validation.geometry) if item == "support")
+        if validation.world_change_probability >= self.stability.evict_enter_probability and physical_support_count >= 2:
             return "EVICT", "proposal_insert_hard_world_change"
         if validation.world_change_probability >= self.stability.replace_enter_probability:
             return "REPLACE", "proposal_insert_world_change"

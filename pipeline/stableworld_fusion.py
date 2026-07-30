@@ -89,7 +89,7 @@ def _intent_explanation(evidences: Dict[str, EvidenceValue]) -> str:
     if state in {"Idle", ""}:
         return "idle"
     if state in {"Turn Left", "Turn Right"}:
-        return "camera_motion"
+        return "viewpoint_change"
     if state in {"Forward", "Backward", "Left", "Right", "Walk", "Run"}:
         return "locomotion"
     if state == "Jump":
@@ -105,7 +105,7 @@ def _world_change_probability(evidences: Dict[str, EvidenceValue]) -> float:
     explanation = _intent_explanation(evidences)
 
     visual_change = 0.35 * appearance_change + 0.30 * semantic_change + 0.35 * geometry_change
-    if explanation == "camera_motion":
+    if explanation == "viewpoint_change":
         visual_change *= 1.0 - 0.35 * intent_confidence
     elif explanation in {"locomotion", "vertical_motion"}:
         visual_change *= 1.0 - 0.15 * intent_confidence
