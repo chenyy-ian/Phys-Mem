@@ -16,7 +16,8 @@ from .experiment_tracking import ExperimentRecorder
 from .stableworld_action import ActionIntentEngine
 from .stableworld_evidence import EvidenceCollector
 from .stableworld_fusion import EvidenceValue, FusionBenchmark, FusionConfig, FusionEngine, FusionVisualizer
-from .stableworld_memory import MemoryBuffer, MemoryPolicy, MemoryScheduler, PhysMemScheduler
+from .stableworld_memory import MemoryBuffer, MemoryPolicy, MemoryScheduler
+from .physmem_scheduler import PhysMemScheduler
 from .stableworld_similarity import build_similarity_estimator, orb_ransac_score_chw
 from tqdm import tqdm
 
