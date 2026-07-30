@@ -5,6 +5,7 @@ import numpy as np
 
 from .stableworld_memory import MemoryBuffer, MemoryDecision, MemoryPolicy, MemoryScheduler
 from .stableworld_similarity import SimilarityResult
+from .stableworld_action import PoseState
 
 
 @dataclass
@@ -36,6 +37,65 @@ class EvidenceValidation:
 
 
 @dataclass
+class PoseValidation:
+    event: str = "unknown"
+    validation: str = "neutral"
+    pose_distance: float = 0.0
+    yaw_delta: float = 0.0
+    nearest_frame_id: int | None = None
+    reasons: List[str] = field(default_factory=list)
+
+
+class PoseMemory:
+    def __init__(self, max_size: int = 512):
+        self.max_size = int(max_size)
+        self.poses: Dict[int, PoseState] = {}
+        self.order: List[int] = []
+
+    def insert(self, frame_id: int, pose: PoseState | None):
+        if pose is None:
+            return
+        frame_id = int(frame_id)
+        if frame_id not in self.poses:
+            self.order.append(frame_id)
+        self.poses[frame_id] = pose
+        while len(self.order) > self.max_size:
+            old = self.order.pop(0)
+            self.poses.pop(old, None)
+
+    def get(self, frame_id: int) -> PoseState | None:
+        return self.poses.get(int(frame_id))
+
+    def nearest(self, pose: PoseState | None) -> tuple[int | None, PoseState | None, float]:
+        if pose is None or not self.poses:
+            return None, None, float("inf")
+        best_id = None
+        best_pose = None
+        best_distance = float("inf")
+        for frame_id, candidate in self.poses.items():
+            distance = self.distance(pose, candidate)
+            if distance < best_distance:
+                best_id = frame_id
+                best_pose = candidate
+                best_distance = distance
+        return best_id, best_pose, float(best_distance)
+
+    @staticmethod
+    def distance(a: PoseState | None, b: PoseState | None) -> float:
+        if a is None or b is None:
+            return float("inf")
+        dx = float(a.x) - float(b.x)
+        dz = float(a.z) - float(b.z)
+        return float(np.sqrt(dx * dx + dz * dz))
+
+    @staticmethod
+    def yaw_delta(a: PoseState | None, b: PoseState | None) -> float:
+        if a is None or b is None:
+            return float("inf")
+        return abs(float(a.yaw) - float(b.yaw))
+
+
+@dataclass
 class StrategyStabilityConfig:
     replace_cooldown: int = 5
     evict_cooldown: int = 8
@@ -45,6 +105,12 @@ class StrategyStabilityConfig:
     evict_enter_probability: float = 0.80
     evict_exit_probability: float = 0.65
     allow_direct_keep_to_evict: bool = False
+    viewpoint_rotation_threshold: float = 0.15
+    viewpoint_translation_threshold: float = 0.35
+    forward_progress_threshold: float = 0.20
+    yaw_stable_threshold: float = 0.20
+    revisit_distance_threshold: float = 0.75
+    revisit_yaw_threshold: float = 0.35
 
 
 class ProposalEngine:
@@ -165,6 +231,73 @@ class EvidenceValidator:
         ]
 
 
+class PoseValidator:
+    def __init__(self, stability: StrategyStabilityConfig):
+        self.stability = stability
+
+    def validate(
+        self,
+        pose_state: PoseState | None,
+        pose_memory: PoseMemory,
+        reference_frame_id: int,
+        middle_frame_id: int,
+    ) -> PoseValidation:
+        if pose_state is None:
+            return PoseValidation(event="unknown", validation="neutral", reasons=["pose=missing"])
+
+        reference_pose = pose_memory.get(reference_frame_id)
+        middle_pose = pose_memory.get(middle_frame_id)
+        nearest_id, nearest_pose, nearest_distance = pose_memory.nearest(pose_state)
+        yaw_delta = PoseMemory.yaw_delta(pose_state, nearest_pose)
+        delta_position = float(np.sqrt(pose_state.delta_x * pose_state.delta_x + pose_state.delta_z * pose_state.delta_z))
+        delta_yaw = abs(float(pose_state.delta_yaw))
+
+        if delta_yaw >= self.stability.viewpoint_rotation_threshold and delta_position <= self.stability.viewpoint_translation_threshold:
+            return PoseValidation(
+                event="viewpoint_change",
+                validation="reject_hard_update",
+                pose_distance=nearest_distance,
+                yaw_delta=yaw_delta,
+                nearest_frame_id=nearest_id,
+                reasons=[f"delta_yaw={delta_yaw:.4f}", f"delta_position={delta_position:.4f}"],
+            )
+        if pose_state.delta_z >= self.stability.forward_progress_threshold and delta_yaw <= self.stability.yaw_stable_threshold:
+            return PoseValidation(
+                event="forward_progression",
+                validation="support_insert",
+                pose_distance=PoseMemory.distance(pose_state, reference_pose),
+                yaw_delta=PoseMemory.yaw_delta(pose_state, reference_pose),
+                nearest_frame_id=nearest_id,
+                reasons=[f"delta_z={pose_state.delta_z:.4f}", f"delta_yaw={delta_yaw:.4f}"],
+            )
+        if abs(pose_state.delta_x) >= self.stability.forward_progress_threshold and delta_yaw <= self.stability.yaw_stable_threshold:
+            return PoseValidation(
+                event="lateral_motion",
+                validation="support_insert",
+                pose_distance=PoseMemory.distance(pose_state, middle_pose),
+                yaw_delta=PoseMemory.yaw_delta(pose_state, middle_pose),
+                nearest_frame_id=nearest_id,
+                reasons=[f"delta_x={pose_state.delta_x:.4f}", f"delta_yaw={delta_yaw:.4f}"],
+            )
+        if nearest_id is not None and nearest_distance <= self.stability.revisit_distance_threshold and yaw_delta <= self.stability.revisit_yaw_threshold:
+            return PoseValidation(
+                event="pose_revisit",
+                validation="support_keep",
+                pose_distance=nearest_distance,
+                yaw_delta=yaw_delta,
+                nearest_frame_id=nearest_id,
+                reasons=[f"nearest={nearest_id}", f"distance={nearest_distance:.4f}", f"yaw_delta={yaw_delta:.4f}"],
+            )
+        return PoseValidation(
+            event="pose_continuous",
+            validation="neutral",
+            pose_distance=nearest_distance,
+            yaw_delta=yaw_delta,
+            nearest_frame_id=nearest_id,
+            reasons=[f"distance={nearest_distance:.4f}", f"yaw_delta={yaw_delta:.4f}"],
+        )
+
+
 class PhysMemStateMachine:
     ORDER = {"KEEP": 0, "INSERT": 1, "REPLACE": 2, "EVICT": 3, "REFRESH": 1}
 
@@ -175,9 +308,15 @@ class PhysMemStateMachine:
         self.replace_cooldown_remaining = 0
         self.evict_cooldown_remaining = 0
 
-    def transition(self, proposal: MemoryProposal, validation: EvidenceValidation) -> tuple[str, str]:
-        candidate, reason = self._candidate_transition(proposal, validation)
-        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation)
+    def transition(
+        self,
+        proposal: MemoryProposal,
+        validation: EvidenceValidation,
+        pose_validation: PoseValidation | None = None,
+    ) -> tuple[str, str]:
+        pose_validation = pose_validation or PoseValidation()
+        candidate, reason = self._candidate_transition(proposal, validation, pose_validation)
+        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation, pose_validation)
         self._update_cooldown(constrained)
         previous = self.last_state
         self.last_state = constrained
@@ -185,9 +324,17 @@ class PhysMemStateMachine:
             return constrained, f"{reason}|{constraint_reason}|prev={previous}"
         return constrained, f"{reason}|prev={previous}"
 
-    def _candidate_transition(self, proposal: MemoryProposal, validation: EvidenceValidation) -> tuple[str, str]:
+    def _candidate_transition(
+        self,
+        proposal: MemoryProposal,
+        validation: EvidenceValidation,
+        pose_validation: PoseValidation,
+    ) -> tuple[str, str]:
         if validation.geometry == "reject":
             return "REFRESH", "proposal_validation_geometry_reject"
+
+        if pose_validation.validation == "reject_hard_update" and proposal.state == "INSERT":
+            return "KEEP", f"pose_{pose_validation.event}_protect_memory"
 
         if proposal.state == "KEEP":
             if validation.intent == "reject" and validation.world_change_probability >= self.stability.replace_enter_probability:
@@ -198,6 +345,10 @@ class PhysMemStateMachine:
 
         if validation.intent == "reject" and validation.intent_explanation == "viewpoint_change":
             return "KEEP", "proposal_insert_explained_by_camera_motion"
+        if pose_validation.validation == "support_insert":
+            return "INSERT", f"pose_{pose_validation.event}_preserve_progression"
+        if pose_validation.validation == "support_keep":
+            return "KEEP", f"pose_{pose_validation.event}_preserve_memory"
         if validation.semantic == "support" and validation.geometry == "support":
             return "INSERT", "proposal_insert_validated"
         physical_support_count = sum(1 for item in (validation.semantic, validation.geometry) if item == "support")
@@ -212,7 +363,15 @@ class PhysMemStateMachine:
         candidate: str,
         proposal: MemoryProposal,
         validation: EvidenceValidation,
+        pose_validation: PoseValidation,
     ) -> tuple[str, str]:
+        if pose_validation.validation == "reject_hard_update" and candidate in {"REPLACE", "EVICT"}:
+            return "KEEP", f"pose_{pose_validation.event}_blocks_hard_update"
+        if pose_validation.validation == "support_insert" and candidate == "EVICT":
+            return "INSERT", f"pose_{pose_validation.event}_blocks_evict"
+        if pose_validation.validation == "support_keep" and candidate in {"REPLACE", "EVICT"}:
+            return "KEEP", f"pose_{pose_validation.event}_blocks_hard_update"
+
         if candidate == "REPLACE" and self.replace_cooldown_remaining > 0:
             return "INSERT", f"replace_cooldown={self.replace_cooldown_remaining}"
         if candidate == "EVICT" and self.evict_cooldown_remaining > 0:
@@ -261,6 +420,8 @@ class PhysMemScheduler(MemoryScheduler):
         self.stability = stability or StrategyStabilityConfig()
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
+        self.pose_memory = PoseMemory()
+        self.pose_validator = PoseValidator(self.stability)
         self.state_machine = PhysMemStateMachine(self.policy, self.stability)
 
     def schedule(
@@ -272,6 +433,7 @@ class PhysMemScheduler(MemoryScheduler):
         geometry_confidence: float = 1.0,
         intent_state: str = "Unknown",
         intent_confidence: float = 0.0,
+        pose_state: PoseState | None = None,
     ) -> MemoryDecision:
         proposal = self.proposal_engine.propose(similarity, fusion_result)
         validation = self.validator.validate(
@@ -281,7 +443,14 @@ class PhysMemScheduler(MemoryScheduler):
             intent_state=intent_state,
             intent_confidence=intent_confidence,
         )
-        memory_state, transition = self.state_machine.transition(proposal, validation)
+        pose_validation = self.pose_validator.validate(
+            pose_state,
+            self.pose_memory,
+            reference_frame_id=memory_buffer.reference_frame_id,
+            middle_frame_id=memory_buffer.middle_frame_id,
+        )
+        memory_state, transition = self.state_machine.transition(proposal, validation, pose_validation)
+        self.pose_memory.insert(memory_buffer.current_frame_id, pose_state)
         keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state)
         score = float(
             unified_memory_score

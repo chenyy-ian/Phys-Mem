@@ -3,7 +3,7 @@ from typing import Dict, List
 
 import torch
 
-from .stableworld_action import ActionIntentEngine, ActionState
+from .stableworld_action import ActionIntentEngine, ActionState, PoseState
 from .stableworld_fusion import EvidenceValue, FusionEngine, FusionResult
 from .stableworld_similarity import SimilarityResult, build_similarity_estimator
 
@@ -14,6 +14,7 @@ class EvidenceBundle:
     evidences: Dict[str, EvidenceValue]
     similarity_results: Dict[str, SimilarityResult]
     action_state: ActionState
+    pose_state: PoseState | None
     fusion_result: FusionResult
 
 
@@ -137,6 +138,8 @@ class EvidenceCollector:
 
         intent_score = FusionEngine.intent_to_memory_score(action_state.intent_state, action_state.intent_confidence)
         action_explanation = self._action_explanation(action_state)
+        pose_state = action_state.pose_state
+        pose_dict = pose_state.as_dict() if pose_state is not None else {}
         evidences["intent"] = EvidenceValue(
             name="intent",
             score=intent_score,
@@ -149,6 +152,9 @@ class EvidenceCollector:
                 "is_world_change_evidence": False,
                 "rotation_speed": float(action_state.rotation_speed),
                 "movement_speed": float(action_state.movement_speed),
+                "is_view_rotation": bool(pose_state is not None and abs(pose_state.delta_yaw) > 0 and pose_state.movement_magnitude < 0.25),
+                "is_forward_progression": bool(pose_state is not None and pose_state.delta_z > 0 and abs(pose_state.delta_yaw) < 0.25),
+                **pose_dict,
             },
         )
         fusion_result = self.fusion_engine.fuse(evidences)
@@ -158,5 +164,6 @@ class EvidenceCollector:
             evidences=evidences,
             similarity_results=similarity_results,
             action_state=action_state,
+            pose_state=pose_state,
             fusion_result=fusion_result,
         )

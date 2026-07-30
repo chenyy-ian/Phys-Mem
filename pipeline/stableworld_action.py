@@ -9,6 +9,38 @@ import torch
 
 
 @dataclass
+class PoseState:
+    frame_index: int
+    x: float = 0.0
+    z: float = 0.0
+    yaw: float = 0.0
+    pitch: float = 0.0
+    delta_x: float = 0.0
+    delta_z: float = 0.0
+    delta_yaw: float = 0.0
+    delta_pitch: float = 0.0
+    movement_magnitude: float = 0.0
+    rotation_magnitude: float = 0.0
+    pose_confidence: float = 0.0
+
+    def as_dict(self) -> Dict[str, float]:
+        return {
+            "frame_index": int(self.frame_index),
+            "pose_x": float(self.x),
+            "pose_z": float(self.z),
+            "pose_yaw": float(self.yaw),
+            "pose_pitch": float(self.pitch),
+            "delta_x": float(self.delta_x),
+            "delta_z": float(self.delta_z),
+            "delta_yaw": float(self.delta_yaw),
+            "delta_pitch": float(self.delta_pitch),
+            "movement_magnitude": float(self.movement_magnitude),
+            "rotation_magnitude": float(self.rotation_magnitude),
+            "pose_confidence": float(self.pose_confidence),
+        }
+
+
+@dataclass
 class ActionState:
     frame_index: int
     intent_state: str
@@ -17,6 +49,80 @@ class ActionState:
     movement_speed: float
     keyboard_vector: List[float]
     mouse_vector: List[float]
+    pose_state: PoseState | None = None
+
+
+class PoseTracker:
+    def __init__(
+        self,
+        translation_scale: float = 1.0,
+        rotation_scale: float = 1.0,
+        pitch_limit: float = 89.0,
+    ):
+        self.translation_scale = float(translation_scale)
+        self.rotation_scale = float(rotation_scale)
+        self.pitch_limit = float(pitch_limit)
+        self.x = 0.0
+        self.z = 0.0
+        self.yaw = 0.0
+        self.pitch = 0.0
+
+    def update(self, action_state: ActionState) -> PoseState:
+        delta_x, delta_z = self._translation_delta(action_state.keyboard_vector, action_state.intent_state)
+        delta_yaw, delta_pitch = self._rotation_delta(action_state.mouse_vector)
+        self.x += delta_x
+        self.z += delta_z
+        self.yaw += delta_yaw
+        self.pitch = float(np.clip(self.pitch + delta_pitch, -self.pitch_limit, self.pitch_limit))
+        movement = float(np.sqrt(delta_x * delta_x + delta_z * delta_z))
+        rotation = float(np.sqrt(delta_yaw * delta_yaw + delta_pitch * delta_pitch))
+        confidence = float(np.clip(max(action_state.intent_confidence, min(1.0, movement + rotation)), 0.0, 1.0))
+        return PoseState(
+            frame_index=action_state.frame_index,
+            x=float(self.x),
+            z=float(self.z),
+            yaw=float(self.yaw),
+            pitch=float(self.pitch),
+            delta_x=float(delta_x),
+            delta_z=float(delta_z),
+            delta_yaw=float(delta_yaw),
+            delta_pitch=float(delta_pitch),
+            movement_magnitude=movement,
+            rotation_magnitude=rotation,
+            pose_confidence=confidence,
+        )
+
+    def _translation_delta(self, keyboard_vec: List[float], intent_state: str) -> tuple[float, float]:
+        if not keyboard_vec:
+            return 0.0, 0.0
+        speed = max(float(np.linalg.norm(keyboard_vec)), 0.0) * self.translation_scale
+        if intent_state == "Run":
+            speed *= 1.5
+        if len(keyboard_vec) == 4:
+            return (
+                (float(keyboard_vec[3]) - float(keyboard_vec[2])) * self.translation_scale,
+                (float(keyboard_vec[0]) - float(keyboard_vec[1])) * self.translation_scale,
+            )
+        if len(keyboard_vec) == 2:
+            return 0.0, (float(keyboard_vec[0]) - float(keyboard_vec[1])) * self.translation_scale
+        if len(keyboard_vec) == 7:
+            return (float(keyboard_vec[6]) - float(keyboard_vec[5])) * self.translation_scale, 0.0
+        if intent_state in {"Forward", "Walk", "Run"}:
+            return 0.0, speed
+        if intent_state == "Backward":
+            return 0.0, -speed
+        if intent_state == "Left":
+            return -speed, 0.0
+        if intent_state == "Right":
+            return speed, 0.0
+        return 0.0, 0.0
+
+    def _rotation_delta(self, mouse_vec: List[float]) -> tuple[float, float]:
+        if not mouse_vec:
+            return 0.0, 0.0
+        if len(mouse_vec) > 1:
+            return float(mouse_vec[1]) * self.rotation_scale, float(mouse_vec[0]) * self.rotation_scale
+        return float(mouse_vec[0]) * self.rotation_scale, 0.0
 
 
 class ActionParser:
@@ -156,6 +262,7 @@ class ActionVisualizer:
 class ActionIntentEngine:
     def __init__(self, bucket_size: int = 100):
         self.parser = ActionParser()
+        self.pose_tracker = PoseTracker()
         self.bucket_size = bucket_size
         self.states: List[ActionState] = []
 
@@ -174,6 +281,7 @@ class ActionIntentEngine:
         keyboard_slice = keyboard[:, start:end] if keyboard is not None else None
         mouse_slice = mouse[:, start:end] if mouse is not None else None
         state = self.parser.parse(frame_index, keyboard_slice, mouse_slice)
+        state.pose_state = self.pose_tracker.update(state)
         self.states.append(state)
         return state
 
@@ -193,13 +301,41 @@ class ActionIntentEngine:
                 "movement_speed",
                 "keyboard_vector",
                 "mouse_vector",
+                "pose_x",
+                "pose_z",
+                "pose_yaw",
+                "pose_pitch",
+                "delta_x",
+                "delta_z",
+                "delta_yaw",
+                "delta_pitch",
+                "pose_movement_magnitude",
+                "pose_rotation_magnitude",
+                "pose_confidence",
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for state in states:
                 row = asdict(state)
+                row.pop("pose_state", None)
+                row.pop("movement_magnitude", None)
+                row.pop("rotation_magnitude", None)
                 row["keyboard_vector"] = " ".join(f"{x:.6f}" for x in state.keyboard_vector)
                 row["mouse_vector"] = " ".join(f"{x:.6f}" for x in state.mouse_vector)
+                pose = state.pose_state or PoseState(frame_index=state.frame_index)
+                row.update({
+                    "pose_x": f"{pose.x:.6f}",
+                    "pose_z": f"{pose.z:.6f}",
+                    "pose_yaw": f"{pose.yaw:.6f}",
+                    "pose_pitch": f"{pose.pitch:.6f}",
+                    "delta_x": f"{pose.delta_x:.6f}",
+                    "delta_z": f"{pose.delta_z:.6f}",
+                    "delta_yaw": f"{pose.delta_yaw:.6f}",
+                    "delta_pitch": f"{pose.delta_pitch:.6f}",
+                    "pose_movement_magnitude": f"{pose.movement_magnitude:.6f}",
+                    "pose_rotation_magnitude": f"{pose.rotation_magnitude:.6f}",
+                    "pose_confidence": f"{pose.pose_confidence:.6f}",
+                })
                 writer.writerow(row)
 
         summary_path = os.path.join(output_dir, "action_summary_100f.csv")
