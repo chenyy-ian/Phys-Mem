@@ -238,9 +238,9 @@ class PhysMemScheduler(MemoryScheduler):
             keep_ids = [frame_id for frame_id in ids if frame_id not in set(delete_ids)]
             return keep_ids, delete_ids, [], 2, "append_compact", 0
         if memory_state == "EVICT":
-            keep_ids = ids[-2:]
-            delete_ids = ids[:-2]
-            return keep_ids, delete_ids, [], len(delete_ids), "hard_evict", 0
+            keep_ids = ids[-6:]
+            delete_ids = ids[:-6]
+            return keep_ids, delete_ids, [], 3, "hard_evict", 0
         delete_ids = ids[:3]
         keep_ids = ids[3:]
         return keep_ids, delete_ids, [], 3, "replace_stale", 0
