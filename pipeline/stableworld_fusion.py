@@ -49,6 +49,78 @@ class FusionResult:
     evidence_contributions: Dict[str, float]
     evidence_scores: Dict[str, float]
     mode: str
+    appearance_confidence: float = 0.0
+    semantic_consistency: float = 0.0
+    geometry_consistency: float = 0.0
+    intent_explanation: str = "unknown"
+    world_change_probability: float = 0.0
+
+    def evidence_report(self) -> Dict[str, float | str]:
+        return {
+            "appearance_confidence": float(self.appearance_confidence),
+            "semantic_consistency": float(self.semantic_consistency),
+            "geometry_consistency": float(self.geometry_consistency),
+            "intent_explanation": self.intent_explanation,
+            "world_change_probability": float(self.world_change_probability),
+            "unified_memory_score": float(self.unified_memory_score),
+            "evidence_confidence": float(self.evidence_confidence),
+        }
+
+
+def _available_score(evidences: Dict[str, EvidenceValue], name: str, default: float = 1.0) -> float:
+    evidence = evidences.get(name)
+    if evidence is None or not evidence.available:
+        return float(default)
+    return float(np.clip(evidence.score, 0.0, 1.0))
+
+
+def _available_confidence(evidences: Dict[str, EvidenceValue], name: str, default: float = 0.0) -> float:
+    evidence = evidences.get(name)
+    if evidence is None or not evidence.available:
+        return float(default)
+    return float(np.clip(evidence.confidence, 0.0, 1.0))
+
+
+def _intent_explanation(evidences: Dict[str, EvidenceValue]) -> str:
+    intent = evidences.get("intent")
+    if intent is None or not intent.available:
+        return "unknown"
+    state = str(intent.metadata.get("intent_state", "Unknown"))
+    if state in {"Idle", ""}:
+        return "idle"
+    if state in {"Turn Left", "Turn Right"}:
+        return "camera_motion"
+    if state in {"Forward", "Backward", "Left", "Right", "Walk", "Run"}:
+        return "locomotion"
+    if state == "Jump":
+        return "vertical_motion"
+    return "unknown"
+
+
+def _world_change_probability(evidences: Dict[str, EvidenceValue]) -> float:
+    appearance_change = 1.0 - _available_score(evidences, "appearance", default=1.0)
+    semantic_change = 1.0 - _available_score(evidences, "semantic", default=1.0)
+    geometry_change = 1.0 - _available_score(evidences, "geometry", default=1.0)
+    intent_confidence = _available_confidence(evidences, "intent", default=0.0)
+    explanation = _intent_explanation(evidences)
+
+    visual_change = 0.35 * appearance_change + 0.30 * semantic_change + 0.35 * geometry_change
+    if explanation == "camera_motion":
+        visual_change *= 1.0 - 0.35 * intent_confidence
+    elif explanation in {"locomotion", "vertical_motion"}:
+        visual_change *= 1.0 - 0.15 * intent_confidence
+    return float(np.clip(visual_change, 0.0, 1.0))
+
+
+def _attach_evidence_report(result: FusionResult, evidences: Dict[str, EvidenceValue]) -> FusionResult:
+    appearance_score = _available_score(evidences, "appearance", default=0.0)
+    appearance_confidence = _available_confidence(evidences, "appearance", default=0.0)
+    result.appearance_confidence = float(np.clip(appearance_score * appearance_confidence, 0.0, 1.0))
+    result.semantic_consistency = _available_score(evidences, "semantic", default=0.0)
+    result.geometry_consistency = _available_score(evidences, "geometry", default=0.0)
+    result.intent_explanation = _intent_explanation(evidences)
+    result.world_change_probability = _world_change_probability(evidences)
+    return result
 
 
 class WeightManager:
@@ -94,14 +166,14 @@ class WeightedFusionStrategy(BaseFusionStrategy):
 
         unified_score = float(np.clip(sum(contributions.values()), 0.0, 1.0))
         evidence_confidence = float(np.clip(sum(confidence_terms), 0.0, 1.0))
-        return FusionResult(
+        return _attach_evidence_report(FusionResult(
             unified_memory_score=unified_score,
             evidence_confidence=evidence_confidence,
             evidence_weights=weights,
             evidence_contributions=contributions,
             evidence_scores=scores,
             mode=config.mode,
-        )
+        ), evidences)
 
 
 class RuleBasedFusionStrategy(BaseFusionStrategy):
@@ -117,7 +189,7 @@ class RuleBasedFusionStrategy(BaseFusionStrategy):
             penalties.append((0.5 - intent.score) * weights.get("intent", 0.0))
         score = float(np.clip(weighted.unified_memory_score - sum(penalties), 0.0, 1.0))
         weighted.unified_memory_score = score
-        return weighted
+        return _attach_evidence_report(weighted, evidences)
 
 
 class LearnedFusionStrategy(BaseFusionStrategy):
