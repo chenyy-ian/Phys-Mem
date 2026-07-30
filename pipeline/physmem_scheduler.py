@@ -35,6 +35,18 @@ class EvidenceValidation:
         return sum(1 for item in (self.semantic, self.geometry, self.intent) if item == "reject")
 
 
+@dataclass
+class StrategyStabilityConfig:
+    replace_cooldown: int = 5
+    evict_cooldown: int = 8
+    insert_enter_probability: float = 0.35
+    replace_enter_probability: float = 0.55
+    replace_exit_probability: float = 0.40
+    evict_enter_probability: float = 0.80
+    evict_exit_probability: float = 0.65
+    allow_direct_keep_to_evict: bool = False
+
+
 class ProposalEngine:
     def __init__(self, policy: MemoryPolicy):
         self.policy = policy
@@ -150,15 +162,31 @@ class EvidenceValidator:
 
 
 class PhysMemStateMachine:
-    def __init__(self, policy: MemoryPolicy):
+    ORDER = {"KEEP": 0, "INSERT": 1, "REPLACE": 2, "EVICT": 3, "REFRESH": 1}
+
+    def __init__(self, policy: MemoryPolicy, stability: StrategyStabilityConfig | None = None):
         self.policy = policy
+        self.stability = stability or StrategyStabilityConfig()
+        self.last_state = "KEEP"
+        self.replace_cooldown_remaining = 0
+        self.evict_cooldown_remaining = 0
 
     def transition(self, proposal: MemoryProposal, validation: EvidenceValidation) -> tuple[str, str]:
+        candidate, reason = self._candidate_transition(proposal, validation)
+        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation)
+        self._update_cooldown(constrained)
+        previous = self.last_state
+        self.last_state = constrained
+        if constraint_reason:
+            return constrained, f"{reason}|{constraint_reason}|prev={previous}"
+        return constrained, f"{reason}|prev={previous}"
+
+    def _candidate_transition(self, proposal: MemoryProposal, validation: EvidenceValidation) -> tuple[str, str]:
         if validation.geometry == "reject":
             return "REFRESH", "proposal_validation_geometry_reject"
 
         if proposal.state == "KEEP":
-            if validation.intent == "reject" and validation.world_change_probability >= 0.65:
+            if validation.intent == "reject" and validation.world_change_probability >= self.stability.replace_enter_probability:
                 return "REPLACE", "proposal_keep_rejected_by_world_change"
             if validation.reject_count >= 2:
                 return "INSERT", "proposal_keep_soft_reject"
@@ -168,20 +196,67 @@ class PhysMemStateMachine:
             return "KEEP", "proposal_insert_explained_by_camera_motion"
         if validation.semantic == "support" and validation.geometry == "support":
             return "INSERT", "proposal_insert_validated"
-        if validation.world_change_probability >= 0.75 and validation.support_count >= 2:
+        if validation.world_change_probability >= self.stability.evict_enter_probability and validation.support_count >= 2:
             return "EVICT", "proposal_insert_hard_world_change"
-        if validation.world_change_probability >= 0.45:
+        if validation.world_change_probability >= self.stability.replace_enter_probability:
             return "REPLACE", "proposal_insert_world_change"
         return "INSERT", "proposal_insert_conservative"
 
+    def _apply_transition_constraints(
+        self,
+        candidate: str,
+        proposal: MemoryProposal,
+        validation: EvidenceValidation,
+    ) -> tuple[str, str]:
+        if candidate == "REPLACE" and self.replace_cooldown_remaining > 0:
+            return "INSERT", f"replace_cooldown={self.replace_cooldown_remaining}"
+        if candidate == "EVICT" and self.evict_cooldown_remaining > 0:
+            return "REPLACE", f"evict_cooldown={self.evict_cooldown_remaining}"
+
+        if candidate == "EVICT" and self.last_state == "KEEP" and not self.stability.allow_direct_keep_to_evict:
+            return "REPLACE", "blocked_direct_keep_to_evict"
+
+        if candidate == "REPLACE" and self.last_state == "REPLACE":
+            if validation.world_change_probability < self.stability.replace_exit_probability:
+                return "INSERT", f"replace_hysteresis_exit={self.stability.replace_exit_probability:.2f}"
+
+        if candidate == "EVICT" and self.last_state == "EVICT":
+            if validation.world_change_probability < self.stability.evict_exit_probability:
+                return "REPLACE", f"evict_hysteresis_exit={self.stability.evict_exit_probability:.2f}"
+
+        if self.ORDER.get(candidate, 0) > self.ORDER.get(self.last_state, 0) + 1:
+            if candidate == "EVICT":
+                return "REPLACE", "stepwise_transition_to_evict"
+            return "INSERT", "stepwise_transition"
+
+        if candidate == "INSERT" and validation.world_change_probability < self.stability.insert_enter_probability:
+            if proposal.state == "KEEP":
+                return "KEEP", f"insert_hysteresis_enter={self.stability.insert_enter_probability:.2f}"
+
+        return candidate, ""
+
+    def _update_cooldown(self, state: str):
+        self.replace_cooldown_remaining = max(0, self.replace_cooldown_remaining - 1)
+        self.evict_cooldown_remaining = max(0, self.evict_cooldown_remaining - 1)
+        if state == "REPLACE":
+            self.replace_cooldown_remaining = self.stability.replace_cooldown
+        if state == "EVICT":
+            self.evict_cooldown_remaining = self.stability.evict_cooldown
+
 
 class PhysMemScheduler(MemoryScheduler):
-    def __init__(self, sim_threshold: float, policy: MemoryPolicy | None = None):
+    def __init__(
+        self,
+        sim_threshold: float,
+        policy: MemoryPolicy | None = None,
+        stability: StrategyStabilityConfig | None = None,
+    ):
         super().__init__(sim_threshold=sim_threshold)
         self.policy = policy or MemoryPolicy(stable_score=sim_threshold)
+        self.stability = stability or StrategyStabilityConfig()
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
-        self.state_machine = PhysMemStateMachine(self.policy)
+        self.state_machine = PhysMemStateMachine(self.policy, self.stability)
 
     def schedule(
         self,
