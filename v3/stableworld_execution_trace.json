@@ -1,0 +1,3754 @@
+{
+  "events": [
+    {
+      "frame_index": 0,
+      "stage": "Player",
+      "detail": "mode=universal, evict_mode=true, threshold=0.78, similarity_estimator=depth, evidence_mode=physmem, memory_scheduler=physmem, lightglue_spatial_alpha=0.0, depth_metric=l1, depth_model=vits"
+    },
+    {
+      "frame_index": 0,
+      "stage": "Memory",
+      "detail": "created visual/action/cross-attn KV caches, local_attn_size=9"
+    },
+    {
+      "frame_index": 0,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 0-2"
+    },
+    {
+      "frame_index": 0,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 0,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 0-2, evict_middle=0, kv_policy=legacy"
+    },
+    {
+      "frame_index": 3,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=1"
+    },
+    {
+      "frame_index": 3,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=3"
+    },
+    {
+      "frame_index": 3,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 3-5"
+    },
+    {
+      "frame_index": 3,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 3,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 3-5, evict_middle=0, kv_policy=legacy"
+    },
+    {
+      "frame_index": 6,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=2"
+    },
+    {
+      "frame_index": 6,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=6"
+    },
+    {
+      "frame_index": 6,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 6-8"
+    },
+    {
+      "frame_index": 6,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 6,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 6-8, evict_middle=0, kv_policy=legacy"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=3"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=9"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 9-11"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 3, 4, 5, 6, 7, 8], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.5990, rotation=0.0599, movement=0.6667"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Fusion",
+      "detail": "score=0.8079, confidence=0.8442, weights={'appearance': 0.28017208634209123, 'semantic': 0.2353797756551385, 'geometry': 0.30124629758943067, 'intent': 0.1832018404133396}"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Similarity",
+      "detail": "similarity=0.9849"
+    },
+    {
+      "frame_index": 9,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 6, 7, 8, 9, 10, 11]"
+    },
+    {
+      "frame_index": 9,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 9,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 9-11, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=4"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=12"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 12-14"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 6, 7, 8, 9, 10, 11], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=1.0000, rotation=0.1797, movement=0.0000"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Fusion",
+      "detail": "score=0.6340, confidence=0.9122, weights={'appearance': 0.2494860860950338, 'semantic': 0.20015837814825388, 'geometry': 0.27215162680181854, 'intent': 0.27820390895489383}"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Similarity",
+      "detail": "similarity=0.9782"
+    },
+    {
+      "frame_index": 12,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 9, 10, 11, 12, 13, 14]"
+    },
+    {
+      "frame_index": 12,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 12,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 12-14, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=5"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=15"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 15-17"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 9, 10, 11, 12, 13, 14], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.5990, rotation=0.0599, movement=0.3333"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Fusion",
+      "detail": "score=0.7527, confidence=0.7916, weights={'appearance': 0.2700553885828738, 'semantic': 0.21265133719543022, 'geometry': 0.32080616372221715, 'intent': 0.19648711049947876}"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Similarity",
+      "detail": "similarity=0.9779"
+    },
+    {
+      "frame_index": 15,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 12, 13, 14, 15, 16, 17]"
+    },
+    {
+      "frame_index": 15,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 15,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 15-17, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=6"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=18"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 18-20"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 12, 13, 14, 15, 16, 17], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.5990, rotation=0.0599, movement=0.7454"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Fusion",
+      "detail": "score=0.6779, confidence=0.7207, weights={'appearance': 0.2271503142729387, 'semantic': 0.21940034102929779, 'geometry': 0.3371957742168025, 'intent': 0.21625357048096103}"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Similarity",
+      "detail": "similarity=0.9339"
+    },
+    {
+      "frame_index": 18,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 15, 16, 17, 18, 19, 20]"
+    },
+    {
+      "frame_index": 18,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 18,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 18-20, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=7"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=21"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 21-23"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 15, 16, 17, 18, 19, 20], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.5990, rotation=0.0599, movement=0.7454"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Fusion",
+      "detail": "score=0.6851, confidence=0.7276, weights={'appearance': 0.23194968508574787, 'semantic': 0.21496603589375762, 'geometry': 0.3385174017504059, 'intent': 0.21456687727008858}"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Similarity",
+      "detail": "similarity=0.9450"
+    },
+    {
+      "frame_index": 21,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 18, 19, 20, 21, 22, 23]"
+    },
+    {
+      "frame_index": 21,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 21,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 21-23, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=8"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=24"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 24-26"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 18, 19, 20, 21, 22, 23], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.5990, rotation=0.0599, movement=0.3333"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Fusion",
+      "detail": "score=0.6900, confidence=0.7321, weights={'appearance': 0.2319315014687197, 'semantic': 0.21926688856720383, 'geometry': 0.33602953875969027, 'intent': 0.2127720712043863}"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Similarity",
+      "detail": "similarity=0.9459"
+    },
+    {
+      "frame_index": 24,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 21, 22, 23, 24, 25, 26]"
+    },
+    {
+      "frame_index": 24,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 24,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 24-26, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=9"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=27"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 27-29"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 21, 22, 23, 24, 25, 26], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=1.0000, rotation=0.1797, movement=0.0000"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Fusion",
+      "detail": "score=0.5349, confidence=0.8447, weights={'appearance': 0.21703977766287097, 'semantic': 0.17891158486796419, 'geometry': 0.2942568180700242, 'intent': 0.30979181939914063}"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Similarity",
+      "detail": "similarity=0.9499"
+    },
+    {
+      "frame_index": 27,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 24, 25, 26, 27, 28, 29]"
+    },
+    {
+      "frame_index": 27,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 27,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 27-29, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=10"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=30"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 30-32"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 24, 25, 26, 27, 28, 29], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.2018, rotation=0.0202, movement=0.6667"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Fusion",
+      "detail": "score=0.7539, confidence=0.7027, weights={'appearance': 0.263948430359472, 'semantic': 0.25300659834354594, 'geometry': 0.39721972838853986, 'intent': 0.0858252429084422}"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Similarity",
+      "detail": "similarity=0.9341"
+    },
+    {
+      "frame_index": 30,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 27, 28, 29, 30, 31, 32]"
+    },
+    {
+      "frame_index": 30,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 30,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 30-32, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=11"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=33"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 33-35"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 27, 28, 29, 30, 31, 32], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.8008, rotation=0.0801, movement=1.0000"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Fusion",
+      "detail": "score=0.5875, confidence=0.7541, weights={'appearance': 0.20800679741748043, 'semantic': 0.1932612739717751, 'geometry': 0.3217425398446649, 'intent': 0.2769893887660796}"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Similarity",
+      "detail": "similarity=0.9302"
+    },
+    {
+      "frame_index": 33,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 1, 2, 30, 31, 32, 33, 34, 35]"
+    },
+    {
+      "frame_index": 33,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 33,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 33-35, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=12"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=36"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 36-38"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 1, 2, 30, 31, 32, 33, 34, 35], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.0541"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Fusion",
+      "detail": "score=0.4805, confidence=0.8108, weights={'appearance': 0.21019276838557438, 'semantic': 0.16281641446179201, 'geometry': 0.29668789540387386, 'intent': 0.33030292174875975}"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Similarity",
+      "detail": "similarity=0.8982"
+    },
+    {
+      "frame_index": 36,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=0, kv_policy=append_compact, updated_window=[0, 2, 31, 32, 33, 34, 35, 36, 37]"
+    },
+    {
+      "frame_index": 36,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 36,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 36-38, evict_middle=0, kv_policy=append_compact"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=13"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=39"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 39-41"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 2, 31, 32, 33, 34, 35, 36, 37], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.2472"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Fusion",
+      "detail": "score=0.6401, confidence=0.9171, weights={'appearance': 0.2578429438229096, 'semantic': 0.19661436038318514, 'geometry': 0.2685913161717369, 'intent': 0.27695137962216837}"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Similarity",
+      "detail": "similarity=0.9698"
+    },
+    {
+      "frame_index": 39,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 2, 31, 35, 36, 37, 38, 39, 40]"
+    },
+    {
+      "frame_index": 39,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 39,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 39-41, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=14"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=42"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 42-44"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 2, 31, 35, 36, 37, 38, 39, 40], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.4004, rotation=0.0400, movement=1.2019"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Fusion",
+      "detail": "score=0.6769, confidence=0.6367, weights={'appearance': 0.18413367718984436, 'semantic': 0.13801522918588738, 'geometry': 0.4763350055017889, 'intent': 0.2015160881224794}"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Similarity",
+      "detail": "similarity=0.9464"
+    },
+    {
+      "frame_index": 42,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 2, 31, 38, 39, 40, 41, 42, 43]"
+    },
+    {
+      "frame_index": 42,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 42,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 42-44, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=15"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=45"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 45-47"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 2, 31, 38, 39, 40, 41, 42, 43], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.4004, rotation=0.0400, movement=1.0000"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Fusion",
+      "detail": "score=0.6798, confidence=0.6382, weights={'appearance': 0.14924592695701466, 'semantic': 0.14544508191259425, 'geometry': 0.49616064622480904, 'intent': 0.20914834490558207}"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Similarity",
+      "detail": "similarity=0.9498"
+    },
+    {
+      "frame_index": 45,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 2, 31, 41, 42, 43, 44, 45, 46]"
+    },
+    {
+      "frame_index": 45,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 45,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 45-47, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=16"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=48"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 48-50"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 2, 31, 41, 42, 43, 44, 45, 46], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.0000"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Fusion",
+      "detail": "score=0.4316, confidence=0.8175, weights={'appearance': 0.12316906148529734, 'semantic': 0.12116560573356489, 'geometry': 0.3697356067938728, 'intent': 0.385929725987265}"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Similarity",
+      "detail": "similarity=0.9580"
+    },
+    {
+      "frame_index": 48,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=0, kv_policy=append_compact, updated_window=[0, 31, 42, 43, 44, 45, 46, 47, 48]"
+    },
+    {
+      "frame_index": 48,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 48,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 48-50, evict_middle=0, kv_policy=append_compact"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=17"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=51"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 51-53"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 31, 42, 43, 44, 45, 46, 47, 48], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.4142"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Fusion",
+      "detail": "score=0.5528, confidence=0.8543, weights={'appearance': 0.2298192042334181, 'semantic': 0.18952567351114719, 'geometry': 0.2791718650890153, 'intent': 0.30148325716641944}"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Similarity",
+      "detail": "similarity=0.9260"
+    },
+    {
+      "frame_index": 51,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=0, kv_policy=append_compact, updated_window=[0, 42, 44, 45, 46, 47, 48, 49, 50]"
+    },
+    {
+      "frame_index": 51,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 51,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 51-53, evict_middle=0, kv_policy=append_compact"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=18"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=54"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 54-56"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 42, 44, 45, 46, 47, 48, 49, 50], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.4142"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Fusion",
+      "detail": "score=0.5823, confidence=0.8771, weights={'appearance': 0.2367198418248467, 'semantic': 0.1797133185326548, 'geometry': 0.2887052822817245, 'intent': 0.29486155736077396}"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Similarity",
+      "detail": "similarity=0.9791"
+    },
+    {
+      "frame_index": 54,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 42, 44, 48, 49, 50, 51, 52, 53]"
+    },
+    {
+      "frame_index": 54,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 54,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 54-56, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=19"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=57"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 57-59"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 42, 44, 48, 49, 50, 51, 52, 53], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Action Intent",
+      "detail": "intent=Left, confidence=1.0000, rotation=0.0000, movement=0.7454"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Fusion",
+      "detail": "score=0.5526, confidence=0.8583, weights={'appearance': 0.23662767347021169, 'semantic': 0.16482296997967857, 'geometry': 0.2928519837967012, 'intent': 0.30569737275340864}"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Similarity",
+      "detail": "similarity=0.9580"
+    },
+    {
+      "frame_index": 57,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=0, kv_policy=append_compact, updated_window=[0, 44, 49, 50, 51, 52, 53, 54, 55]"
+    },
+    {
+      "frame_index": 57,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 57,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 57-59, evict_middle=0, kv_policy=append_compact"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=20"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=60"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 60-62"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 50, 51, 52, 53, 54, 55], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=1.0000, rotation=0.1198, movement=0.3333"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Fusion",
+      "detail": "score=0.6087, confidence=0.8953, weights={'appearance': 0.24596153133253834, 'semantic': 0.18525567595538714, 'geometry': 0.28219044794407255, 'intent': 0.2865923447680019}"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Similarity",
+      "detail": "similarity=0.9846"
+    },
+    {
+      "frame_index": 60,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 53, 54, 55, 56, 57, 58]"
+    },
+    {
+      "frame_index": 60,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 60,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 60-62, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=21"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=63"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 63-65"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 53, 54, 55, 56, 57, 58], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=1.0000, rotation=0.1797, movement=0.0000"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Fusion",
+      "detail": "score=0.5721, confidence=0.8689, weights={'appearance': 0.22954855952588032, 'semantic': 0.18736478151780786, 'geometry': 0.286331867173805, 'intent': 0.29675479178250685}"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Similarity",
+      "detail": "similarity=0.9649"
+    },
+    {
+      "frame_index": 63,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 56, 57, 58, 59, 60, 61]"
+    },
+    {
+      "frame_index": 63,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 63,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 63-65, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=22"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=66"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 66-68"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 56, 57, 58, 59, 60, 61], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.5990, rotation=0.0599, movement=0.6667"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Fusion",
+      "detail": "score=0.7470, confidence=0.7862, weights={'appearance': 0.2694675737494557, 'semantic': 0.20769521549533917, 'geometry': 0.3244755685583624, 'intent': 0.19836164219684277}"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Similarity",
+      "detail": "similarity=0.9798"
+    },
+    {
+      "frame_index": 66,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 59, 60, 61, 62, 63, 64]"
+    },
+    {
+      "frame_index": 66,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 66,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 66-68, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=23"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=69"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 69-71"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 59, 60, 61, 62, 63, 64], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.5990, rotation=0.0599, movement=0.7454"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Fusion",
+      "detail": "score=0.7169, confidence=0.7577, weights={'appearance': 0.25830987215822304, 'semantic': 0.2044831799000268, 'geometry': 0.3311588101772928, 'intent': 0.20604813776445732}"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Similarity",
+      "detail": "similarity=0.9626"
+    },
+    {
+      "frame_index": 69,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 62, 63, 64, 65, 66, 67]"
+    },
+    {
+      "frame_index": 69,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 69,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 69-71, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=24"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=72"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 72-74"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 62, 63, 64, 65, 66, 67], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.5990, rotation=0.0599, movement=0.7454"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Fusion",
+      "detail": "score=0.6234, confidence=0.6750, weights={'appearance': 0.10726504845651448, 'semantic': 0.22930006080983567, 'geometry': 0.40243026163555146, 'intent': 0.2610046290980984}"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Similarity",
+      "detail": "similarity=0.9235"
+    },
+    {
+      "frame_index": 72,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 65, 66, 67, 68, 69, 70]"
+    },
+    {
+      "frame_index": 72,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 72,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 72-74, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=25"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=75"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 75-77"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 65, 66, 67, 68, 69, 70], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=1.0000, rotation=0.1797, movement=0.0000"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Fusion",
+      "detail": "score=0.3948, confidence=0.7919, weights={'appearance': 0.10922985990749307, 'semantic': 0.13941361635663252, 'geometry': 0.3541570331631724, 'intent': 0.39719949057270204}"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Similarity",
+      "detail": "similarity=0.8916"
+    },
+    {
+      "frame_index": 75,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 68, 69, 70, 71, 72, 73]"
+    },
+    {
+      "frame_index": 75,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 75,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 75-77, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=26"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=78"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 78-80"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 68, 69, 70, 71, 72, 73], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=1.0000, rotation=0.1797, movement=0.0000"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Fusion",
+      "detail": "score=0.4063, confidence=0.7923, weights={'appearance': 0.1147672185476577, 'semantic': 0.1519764642620832, 'geometry': 0.34722112752995593, 'intent': 0.38603518966030315}"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Similarity",
+      "detail": "similarity=0.8995"
+    },
+    {
+      "frame_index": 78,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 71, 72, 73, 74, 75, 76]"
+    },
+    {
+      "frame_index": 78,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 78,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 78-80, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=27"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=81"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 81-83"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 71, 72, 73, 74, 75, 76], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.4004, rotation=0.0400, movement=0.7454"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Fusion",
+      "detail": "score=0.6473, confidence=0.6068, weights={'appearance': 0.14849267181998968, 'semantic': 0.19313640842498608, 'geometry': 0.4552327513554452, 'intent': 0.203138168399579}"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Similarity",
+      "detail": "similarity=0.8973"
+    },
+    {
+      "frame_index": 81,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 74, 75, 76, 77, 78, 79]"
+    },
+    {
+      "frame_index": 81,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 81,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 81-83, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=28"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=84"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 84-86"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 74, 75, 76, 77, 78, 79], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.4004, rotation=0.0400, movement=1.0000"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Fusion",
+      "detail": "score=0.6612, confidence=0.6214, weights={'appearance': 0.13631158739360652, 'semantic': 0.2057266728597171, 'geometry': 0.45784284028535965, 'intent': 0.20011889946131686}"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Similarity",
+      "detail": "similarity=0.9160"
+    },
+    {
+      "frame_index": 84,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 44, 49, 77, 78, 79, 80, 81, 82]"
+    },
+    {
+      "frame_index": 84,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 84,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 84-86, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=29"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=87"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 87-89"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 44, 49, 77, 78, 79, 80, 81, 82], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.2019"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Fusion",
+      "detail": "score=0.4428, confidence=0.8101, weights={'appearance': 0.14894187347453094, 'semantic': 0.13340830075434554, 'geometry': 0.35025987120061397, 'intent': 0.3673899545705096}"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Similarity",
+      "detail": "similarity=0.9534"
+    },
+    {
+      "frame_index": 87,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=0, kv_policy=append_compact, updated_window=[0, 49, 78, 79, 80, 81, 82, 83, 84]"
+    },
+    {
+      "frame_index": 87,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 87,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 87-89, evict_middle=0, kv_policy=append_compact"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=30"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=90"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 90-92"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 49, 78, 79, 80, 81, 82, 83, 84], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.2472"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Fusion",
+      "detail": "score=0.5917, confidence=0.8802, weights={'appearance': 0.24221347040864596, 'semantic': 0.20393936726138792, 'geometry': 0.2653842694220314, 'intent': 0.2884628929079347}"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Similarity",
+      "detail": "similarity=0.9200"
+    },
+    {
+      "frame_index": 90,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 49, 78, 82, 83, 84, 85, 86, 87]"
+    },
+    {
+      "frame_index": 90,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 90,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 90-92, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=31"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=93"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 93-95"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 49, 78, 82, 83, 84, 85, 86, 87], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=0.8008, rotation=0.0801, movement=1.0541"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Fusion",
+      "detail": "score=0.6618, confidence=0.8125, weights={'appearance': 0.2671206906044686, 'semantic': 0.19785172273530546, 'geometry': 0.28450269898234487, 'intent': 0.2505248876778811}"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Similarity",
+      "detail": "similarity=0.9094"
+    },
+    {
+      "frame_index": 93,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 49, 78, 85, 86, 87, 88, 89, 90]"
+    },
+    {
+      "frame_index": 93,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 93,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 93-95, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=32"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=96"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 96-98"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 49, 78, 85, 86, 87, 88, 89, 90], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.8008, rotation=0.0801, movement=1.0000"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Fusion",
+      "detail": "score=0.5419, confidence=0.7269, weights={'appearance': 0.1526703800368716, 'semantic': 0.18136785367084948, 'geometry': 0.3583509577250439, 'intent': 0.30761080856723505}"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Similarity",
+      "detail": "similarity=0.9329"
+    },
+    {
+      "frame_index": 96,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 49, 78, 88, 89, 90, 91, 92, 93]"
+    },
+    {
+      "frame_index": 96,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 96,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 96-98, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=33"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=99"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 99-101"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 49, 78, 88, 89, 90, 91, 92, 93], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.0541"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Fusion",
+      "detail": "score=0.4477, confidence=0.8068, weights={'appearance': 0.1226175139858532, 'semantic': 0.18354896274659854, 'geometry': 0.33473937516612096, 'intent': 0.3590941481014272}"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Similarity",
+      "detail": "similarity=0.9322"
+    },
+    {
+      "frame_index": 99,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=0, kv_policy=append_compact, updated_window=[0, 78, 89, 90, 91, 92, 93, 94, 95]"
+    },
+    {
+      "frame_index": 99,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 99,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 99-101, evict_middle=0, kv_policy=append_compact"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=34"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=102"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 102-104"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 78, 89, 90, 91, 92, 93, 94, 95], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.2472"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Fusion",
+      "detail": "score=0.6559, confidence=0.9282, weights={'appearance': 0.25155665861731186, 'semantic': 0.20680982462563735, 'geometry': 0.2693326242871632, 'intent': 0.27230089246988765}"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Similarity",
+      "detail": "similarity=0.9891"
+    },
+    {
+      "frame_index": 102,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 78, 89, 93, 94, 95, 96, 97, 98]"
+    },
+    {
+      "frame_index": 102,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 102,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 102-104, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=35"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=105"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 105-107"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 78, 89, 93, 94, 95, 96, 97, 98], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Action Intent",
+      "detail": "intent=Walk, confidence=1.0000, rotation=0.0000, movement=1.0000"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Fusion",
+      "detail": "score=0.5643, confidence=0.8623, weights={'appearance': 0.23319543642890236, 'semantic': 0.19010638440051403, 'geometry': 0.2786724761826088, 'intent': 0.2980257029879748}"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Similarity",
+      "detail": "similarity=0.9351"
+    },
+    {
+      "frame_index": 105,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 78, 89, 96, 97, 98, 99, 100, 101]"
+    },
+    {
+      "frame_index": 105,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 105,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 105-107, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=36"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=108"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 108-110"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 78, 89, 96, 97, 98, 99, 100, 101], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Action Intent",
+      "detail": "intent=Right, confidence=1.0000, rotation=0.0000, movement=0.7454"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Fusion",
+      "detail": "score=0.5803, confidence=0.8741, weights={'appearance': 0.2322955878382953, 'semantic': 0.1908813622093654, 'geometry': 0.2830136479129623, 'intent': 0.293809402039377}"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Similarity",
+      "detail": "similarity=0.9633"
+    },
+    {
+      "frame_index": 108,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 78, 89, 99, 100, 101, 102, 103, 104]"
+    },
+    {
+      "frame_index": 108,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 108,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 108-110, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=37"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=111"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 111-113"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 78, 89, 99, 100, 101, 102, 103, 104], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=1.0000, rotation=0.1797, movement=0.0000"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Fusion",
+      "detail": "score=0.6042, confidence=0.8911, weights={'appearance': 0.2372797904047796, 'semantic': 0.19433583049780562, 'geometry': 0.281533601839269, 'intent': 0.2868507772581458}"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Similarity",
+      "detail": "similarity=0.9815"
+    },
+    {
+      "frame_index": 111,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 78, 89, 102, 103, 104, 105, 106, 107]"
+    },
+    {
+      "frame_index": 111,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 111,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 111-113, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=38"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=114"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 114-116"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 78, 89, 102, 103, 104, 105, 106, 107], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Left, confidence=1.0000, rotation=0.1797, movement=0.0000"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Fusion",
+      "detail": "score=0.5641, confidence=0.8634, weights={'appearance': 0.21615364317681265, 'semantic': 0.19380380219813703, 'geometry': 0.2907528948417712, 'intent': 0.2992896597832791}"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Similarity",
+      "detail": "similarity=0.9715"
+    },
+    {
+      "frame_index": 114,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 78, 89, 105, 106, 107, 108, 109, 110]"
+    },
+    {
+      "frame_index": 114,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 114,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 114-116, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=39"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=117"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Action",
+      "detail": "using precomputed action window for latent frames 117-119"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Evidence Collector",
+      "detail": "checking window=[0, 78, 89, 105, 106, 107, 108, 109, 110], evidence_mode=physmem, primary=depth"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Action Intent",
+      "detail": "intent=Turn Right, confidence=0.5990, rotation=0.0599, movement=0.7454"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Fusion",
+      "detail": "score=0.7094, confidence=0.7506, weights={'appearance': 0.25275265452154105, 'semantic': 0.20501316336961845, 'geometry': 0.3340752619649295, 'intent': 0.20815892014391096}"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Similarity",
+      "detail": "similarity=0.9613"
+    },
+    {
+      "frame_index": 117,
+      "stage": "Memory Decision",
+      "detail": "evict_middle=1, kv_policy=preserve_anchor, updated_window=[0, 78, 89, 108, 109, 110, 111, 112, 113]"
+    },
+    {
+      "frame_index": 117,
+      "stage": "World Model",
+      "detail": "denoising latent block with 3 steps"
+    },
+    {
+      "frame_index": 117,
+      "stage": "KV Update",
+      "detail": "context pass wrote latent frames 117-119, evict_middle=1, kv_policy=preserve_anchor"
+    },
+    {
+      "frame_index": 120,
+      "stage": "Frame",
+      "detail": "decoded latent block, total_decoded_blocks=40"
+    },
+    {
+      "frame_index": 120,
+      "stage": "Next Frame",
+      "detail": "next_start_frame=120"
+    }
+  ],
+  "records": [
+    {
+      "frame_index": 9,
+      "reference_frame": 2,
+      "middle_frame": 5,
+      "current_frame": 9,
+      "similarity": 0.9848917247727513,
+      "delete_frame": 3,
+      "delete_range": "3-4-5",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 567.4368578474969,
+      "confidence": 0.9848917247727513,
+      "semantic_similarity": 0.9848917247727513,
+      "final_similarity": 0.9848917247727513,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 567.4368578474969,
+      "geometry_similarity": 0.9848917247727513,
+      "depth_difference": 0.015108275227248669,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": false,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.8079380413109559,
+      "geometry_confidence": 0.9848917247727513,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 3 4 5 6 7 8",
+      "window_after": "0 1 2 6 7 8 9 10 11",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 0.0,
+      "pose_yaw": -0.0598958320915699,
+      "pose_pitch": 0.0,
+      "delta_x": 0.6666666865348816,
+      "delta_z": 0.0,
+      "delta_yaw": -0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.6666666865348816,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.7265625186264515,
+      "pose_delta_position": 0.6666666865348816
+    },
+    {
+      "frame_index": 12,
+      "reference_frame": 2,
+      "middle_frame": 8,
+      "current_frame": 12,
+      "similarity": 0.9782451577484608,
+      "delete_frame": 6,
+      "delete_range": "6-7-8",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 72.58359808474779,
+      "confidence": 0.9782451577484608,
+      "semantic_similarity": 0.9782451577484608,
+      "final_similarity": 0.9782451577484608,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 72.58359808474779,
+      "geometry_similarity": 0.9782451577484608,
+      "depth_difference": 0.02175484225153923,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.6339709320814408,
+      "geometry_confidence": 0.9782451577484608,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 6 7 8 9 10 11",
+      "window_after": "0 1 2 9 10 11 12 13 14",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 0.0,
+      "pose_yaw": -0.2395833320915699,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 0.0,
+      "delta_yaw": -0.1796875,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.0,
+      "rotation_magnitude": 0.1796875,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.0
+    },
+    {
+      "frame_index": 15,
+      "reference_frame": 2,
+      "middle_frame": 11,
+      "current_frame": 15,
+      "similarity": 0.9779243059456348,
+      "delete_frame": 9,
+      "delete_range": "9-10-11",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 96.12730611115694,
+      "confidence": 0.9779243059456348,
+      "semantic_similarity": 0.9779243059456348,
+      "final_similarity": 0.9779243059456348,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 96.12730611115694,
+      "geometry_similarity": 0.9779243059456348,
+      "depth_difference": 0.022075694054365158,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.7526858533476555,
+      "geometry_confidence": 0.9779243059456348,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 9 10 11 12 13 14",
+      "window_after": "0 1 2 12 13 14 15 16 17",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 0.0,
+      "pose_yaw": -0.2994791641831398,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": -0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.598958320915699,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 18,
+      "reference_frame": 2,
+      "middle_frame": 14,
+      "current_frame": 18,
+      "similarity": 0.9339323937892914,
+      "delete_frame": 12,
+      "delete_range": "12-13-14",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 131.66296388953924,
+      "confidence": 0.9339323937892914,
+      "semantic_similarity": 0.9339323937892914,
+      "final_similarity": 0.9339323937892914,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 131.66296388953924,
+      "geometry_similarity": 0.9339323937892914,
+      "depth_difference": 0.06606760621070862,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6778777600605265,
+      "geometry_confidence": 0.9339323937892914,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 12 13 14 15 16 17",
+      "window_after": "0 1 2 15 16 17 18 19 20",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 0.0,
+      "pose_yaw": -0.3593749962747097,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": -0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.598958320915699,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 21,
+      "reference_frame": 2,
+      "middle_frame": 17,
+      "current_frame": 21,
+      "similarity": 0.9449632540345192,
+      "delete_frame": 15,
+      "delete_range": "15-16-17",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 110.50221906043589,
+      "confidence": 0.9449632540345192,
+      "semantic_similarity": 0.9449632540345192,
+      "final_similarity": 0.9449632540345192,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 110.50221906043589,
+      "geometry_similarity": 0.9449632540345192,
+      "depth_difference": 0.055036745965480804,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6851152356287971,
+      "geometry_confidence": 0.9449632540345192,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 15 16 17 18 19 20",
+      "window_after": "0 1 2 18 19 20 21 22 23",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 0.0,
+      "pose_yaw": -0.2994791641831398,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": 0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.598958320915699,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 24,
+      "reference_frame": 2,
+      "middle_frame": 20,
+      "current_frame": 24,
+      "similarity": 0.9459309540688992,
+      "delete_frame": 18,
+      "delete_range": "18-19-20",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 133.7244010064751,
+      "confidence": 0.9459309540688992,
+      "semantic_similarity": 0.9459309540688992,
+      "final_similarity": 0.9459309540688992,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 133.7244010064751,
+      "geometry_similarity": 0.9459309540688992,
+      "depth_difference": 0.054069045931100845,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6899581605482978,
+      "geometry_confidence": 0.9459309540688992,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 18 19 20 21 22 23",
+      "window_after": "0 1 2 21 22 23 24 25 26",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 0.0,
+      "pose_yaw": -0.2395833320915699,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": 0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.598958320915699,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 27,
+      "reference_frame": 2,
+      "middle_frame": 23,
+      "current_frame": 27,
+      "similarity": 0.9498534165322781,
+      "delete_frame": 21,
+      "delete_range": "21-22-23",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 92.25362096913159,
+      "confidence": 0.9498534165322781,
+      "semantic_similarity": 0.9498534165322781,
+      "final_similarity": 0.9498534165322781,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 92.25362096913159,
+      "geometry_similarity": 0.9498534165322781,
+      "depth_difference": 0.05014658346772194,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "pose_viewpoint_change_protect_memory|prev=KEEP",
+      "unified_memory_score": 0.5348840249881376,
+      "geometry_confidence": 0.9498534165322781,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 21 22 23 24 25 26",
+      "window_after": "0 1 2 24 25 26 27 28 29",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 0.0,
+      "pose_yaw": -0.0598958320915699,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 0.0,
+      "delta_yaw": 0.1796875,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.0,
+      "rotation_magnitude": 0.1796875,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.0
+    },
+    {
+      "frame_index": 30,
+      "reference_frame": 2,
+      "middle_frame": 26,
+      "current_frame": 30,
+      "similarity": 0.9340846464037895,
+      "delete_frame": 24,
+      "delete_range": "24-25-26",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 92.88227697834373,
+      "confidence": 0.9340846464037895,
+      "semantic_similarity": 0.9340846464037895,
+      "final_similarity": 0.9340846464037895,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 92.88227697834373,
+      "geometry_similarity": 0.9340846464037895,
+      "depth_difference": 0.06591535359621048,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "pose_pose_revisit_preserve_memory|prev=KEEP",
+      "unified_memory_score": 0.7538992857148034,
+      "geometry_confidence": 0.9340846464037895,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 24 25 26 27 28 29",
+      "window_after": "0 1 2 27 28 29 30 31 32",
+      "pose_x": 0.6666666865348816,
+      "pose_z": -0.6666666865348816,
+      "pose_yaw": -0.08007812313735485,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": -0.6666666865348816,
+      "delta_yaw": -0.02018229104578495,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.6666666865348816,
+      "rotation_magnitude": 0.02018229104578495,
+      "pose_confidence": 0.6868489775806665,
+      "pose_delta_position": 0.6666666865348816
+    },
+    {
+      "frame_index": 33,
+      "reference_frame": 2,
+      "middle_frame": 29,
+      "current_frame": 33,
+      "similarity": 0.9301634058356285,
+      "delete_frame": 27,
+      "delete_range": "27-28-29",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 67.68305692821741,
+      "confidence": 0.9301634058356285,
+      "semantic_similarity": 0.9301634058356285,
+      "final_similarity": 0.9301634058356285,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 67.68305692821741,
+      "geometry_similarity": 0.9301634058356285,
+      "depth_difference": 0.06983659416437149,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.5875190683233675,
+      "geometry_confidence": 0.9301634058356285,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 1 2 27 28 29 30 31 32",
+      "window_after": "0 1 2 30 31 32 33 34 35",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 0.3333333134651184,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 1.0,
+      "delta_yaw": 0.080078125,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0,
+      "rotation_magnitude": 0.080078125,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0
+    },
+    {
+      "frame_index": 36,
+      "reference_frame": 2,
+      "middle_frame": 32,
+      "current_frame": 36,
+      "similarity": 0.8982297033071518,
+      "delete_frame": 1,
+      "delete_range": "1-30",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 77.08896207623184,
+      "confidence": 0.8982297033071518,
+      "semantic_similarity": 0.8982297033071518,
+      "final_similarity": 0.8982297033071518,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 77.08896207623184,
+      "geometry_similarity": 0.8982297033071518,
+      "depth_difference": 0.1017702966928482,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "INSERT",
+      "policy": "physmem_rule",
+      "transition": "pose_forward_progression_preserve_progression|prev=KEEP",
+      "unified_memory_score": 0.48051010611310674,
+      "geometry_confidence": 0.8982297033071518,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_insert",
+      "window_before": "0 1 2 30 31 32 33 34 35",
+      "window_after": "0 2 31 32 33 34 35 36 37",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 1.3333333134651184,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0540925565309005,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0540925565309005
+    },
+    {
+      "frame_index": 39,
+      "reference_frame": 31,
+      "middle_frame": 34,
+      "current_frame": 38,
+      "similarity": 0.9698139671236277,
+      "delete_frame": 32,
+      "delete_range": "32-33-34",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 108.2326709292829,
+      "confidence": 0.9698139671236277,
+      "semantic_similarity": 0.9698139671236277,
+      "final_similarity": 0.9698139671236277,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 108.2326709292829,
+      "geometry_similarity": 0.9698139671236277,
+      "depth_difference": 0.030186032876372337,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": false,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=INSERT",
+      "unified_memory_score": 0.6401177194093627,
+      "geometry_confidence": 0.9698139671236277,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 2 31 32 33 34 35 36 37",
+      "window_after": "0 2 31 35 36 37 38 39 40",
+      "pose_x": 0.0,
+      "pose_z": 2.3333333134651184,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0540925565309005,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0540925565309005
+    },
+    {
+      "frame_index": 42,
+      "reference_frame": 31,
+      "middle_frame": 37,
+      "current_frame": 41,
+      "similarity": 0.9464260265231133,
+      "delete_frame": 35,
+      "delete_range": "35-36-37",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 58.336049085482955,
+      "confidence": 0.9464260265231133,
+      "semantic_similarity": 0.9464260265231133,
+      "final_similarity": 0.9464260265231133,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 58.336049085482955,
+      "geometry_similarity": 0.9464260265231133,
+      "depth_difference": 0.05357397347688675,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6768594773782296,
+      "geometry_confidence": 0.9464260265231133,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 2 31 35 36 37 38 39 40",
+      "window_after": "0 2 31 38 39 40 41 42 43",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 3.3333333134651184,
+      "pose_yaw": -0.04003906063735485,
+      "pose_pitch": 0.0,
+      "delta_x": 0.6666666865348816,
+      "delta_z": 1.0,
+      "delta_yaw": -0.0400390625,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.201850436175566,
+      "rotation_magnitude": 0.0400390625,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.201850436175566
+    },
+    {
+      "frame_index": 45,
+      "reference_frame": 31,
+      "middle_frame": 40,
+      "current_frame": 44,
+      "similarity": 0.9498429037630558,
+      "delete_frame": 38,
+      "delete_range": "38-39-40",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 62.07953789271414,
+      "confidence": 0.9498429037630558,
+      "semantic_similarity": 0.9498429037630558,
+      "final_similarity": 0.9498429037630558,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 62.07953789271414,
+      "geometry_similarity": 0.9498429037630558,
+      "depth_difference": 0.0501570962369442,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6798211087202597,
+      "geometry_confidence": 0.9498429037630558,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 2 31 38 39 40 41 42 43",
+      "window_after": "0 2 31 41 42 43 44 45 46",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 4.333333313465118,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0400390625,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0,
+      "rotation_magnitude": 0.0400390625,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0
+    },
+    {
+      "frame_index": 48,
+      "reference_frame": 31,
+      "middle_frame": 43,
+      "current_frame": 47,
+      "similarity": 0.9580386839807034,
+      "delete_frame": 2,
+      "delete_range": "2-41",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 61.2277879845351,
+      "confidence": 0.9580386839807034,
+      "semantic_similarity": 0.9580386839807034,
+      "final_similarity": 0.9580386839807034,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 61.2277879845351,
+      "geometry_similarity": 0.9580386839807034,
+      "depth_difference": 0.041961316019296646,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "INSERT",
+      "policy": "physmem_rule",
+      "transition": "pose_forward_progression_preserve_progression|prev=KEEP",
+      "unified_memory_score": 0.431571162923791,
+      "geometry_confidence": 0.9580386839807034,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_insert",
+      "window_before": "0 2 31 41 42 43 44 45 46",
+      "window_after": "0 31 42 43 44 45 46 47 48",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 5.333333313465118,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0
+    },
+    {
+      "frame_index": 51,
+      "reference_frame": 42,
+      "middle_frame": 45,
+      "current_frame": 49,
+      "similarity": 0.9259945899248123,
+      "delete_frame": 31,
+      "delete_range": "31-43",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 102.58583095856011,
+      "confidence": 0.9259945899248123,
+      "semantic_similarity": 0.9259945899248123,
+      "final_similarity": 0.9259945899248123,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 102.58583095856011,
+      "geometry_similarity": 0.9259945899248123,
+      "depth_difference": 0.07400541007518768,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": false,
+      "depth_cache_hit_current": false,
+      "memory_state": "INSERT",
+      "policy": "physmem_rule",
+      "transition": "pose_forward_progression_preserve_progression|prev=INSERT",
+      "unified_memory_score": 0.5528458839742818,
+      "geometry_confidence": 0.9259945899248123,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_insert",
+      "window_before": "0 31 42 43 44 45 46 47 48",
+      "window_after": "0 42 44 45 46 47 48 49 50",
+      "pose_x": -0.3333333134651184,
+      "pose_z": 6.333333313465118,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": -1.0,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.4142135623730951,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.4142135623730951
+    },
+    {
+      "frame_index": 54,
+      "reference_frame": 44,
+      "middle_frame": 47,
+      "current_frame": 51,
+      "similarity": 0.9791214726865292,
+      "delete_frame": 45,
+      "delete_range": "45-46-47",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 106.21372214518487,
+      "confidence": 0.9791214726865292,
+      "semantic_similarity": 0.9791214726865292,
+      "final_similarity": 0.9791214726865292,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 106.21372214518487,
+      "geometry_similarity": 0.9791214726865292,
+      "depth_difference": 0.02087852731347084,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": false,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=INSERT",
+      "unified_memory_score": 0.5822525727859076,
+      "geometry_confidence": 0.9791214726865292,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 42 44 45 46 47 48 49 50",
+      "window_after": "0 42 44 48 49 50 51 52 53",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 1.0,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.4142135623730951,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.4142135623730951
+    },
+    {
+      "frame_index": 57,
+      "reference_frame": 44,
+      "middle_frame": 50,
+      "current_frame": 54,
+      "similarity": 0.9579800479114056,
+      "delete_frame": 42,
+      "delete_range": "42-48",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 139.07015998847783,
+      "confidence": 0.9579800479114056,
+      "semantic_similarity": 0.9579800479114056,
+      "final_similarity": 0.9579800479114056,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 139.07015998847783,
+      "geometry_similarity": 0.9579800479114056,
+      "depth_difference": 0.04201995208859444,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "INSERT",
+      "policy": "physmem_rule",
+      "transition": "pose_lateral_motion_preserve_progression|prev=KEEP",
+      "unified_memory_score": 0.5525777018527778,
+      "geometry_confidence": 0.9579800479114056,
+      "intent_state": "Left",
+      "estimator": "depth",
+      "decision": "physmem_insert",
+      "window_before": "0 42 44 48 49 50 51 52 53",
+      "window_after": "0 44 49 50 51 52 53 54 55",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": 1.862645149230957e-09,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 60,
+      "reference_frame": 49,
+      "middle_frame": 52,
+      "current_frame": 56,
+      "similarity": 0.9846405638381839,
+      "delete_frame": 50,
+      "delete_range": "50-51-52",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 102.78808907605708,
+      "confidence": 0.9846405638381839,
+      "semantic_similarity": 0.9846405638381839,
+      "final_similarity": 0.9846405638381839,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 102.78808907605708,
+      "geometry_similarity": 0.9846405638381839,
+      "depth_difference": 0.01535943616181612,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": false,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=INSERT",
+      "unified_memory_score": 0.6086980076918236,
+      "geometry_confidence": 0.9846405638381839,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 50 51 52 53 54 55",
+      "window_after": "0 44 49 53 54 55 56 57 58",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": -0.11979166232049465,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": -0.1197916641831398,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.1197916641831398,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 63,
+      "reference_frame": 49,
+      "middle_frame": 55,
+      "current_frame": 59,
+      "similarity": 0.9648769795894623,
+      "delete_frame": 53,
+      "delete_range": "53-54-55",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 57.37470998428762,
+      "confidence": 0.9648769795894623,
+      "semantic_similarity": 0.9648769795894623,
+      "final_similarity": 0.9648769795894623,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 57.37470998428762,
+      "geometry_similarity": 0.9648769795894623,
+      "depth_difference": 0.03512302041053772,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "pose_viewpoint_change_protect_memory|prev=KEEP",
+      "unified_memory_score": 0.5721358016597609,
+      "geometry_confidence": 0.9648769795894623,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 53 54 55 56 57 58",
+      "window_after": "0 44 49 56 57 58 59 60 61",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": -0.29947916232049465,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 0.0,
+      "delta_yaw": -0.1796875,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.0,
+      "rotation_magnitude": 0.1796875,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.0
+    },
+    {
+      "frame_index": 66,
+      "reference_frame": 49,
+      "middle_frame": 58,
+      "current_frame": 62,
+      "similarity": 0.9797627180814743,
+      "delete_frame": 56,
+      "delete_range": "56-57-58",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 53.293761098757386,
+      "confidence": 0.9797627180814743,
+      "semantic_similarity": 0.9797627180814743,
+      "final_similarity": 0.9797627180814743,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 53.293761098757386,
+      "geometry_similarity": 0.9797627180814743,
+      "depth_difference": 0.020237281918525696,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.7469708224560112,
+      "geometry_confidence": 0.9797627180814743,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 56 57 58 59 60 61",
+      "window_after": "0 44 49 59 60 61 62 63 64",
+      "pose_x": 0.0,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": -0.23958333022892475,
+      "pose_pitch": 0.0,
+      "delta_x": -0.6666666865348816,
+      "delta_z": 0.0,
+      "delta_yaw": 0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.6666666865348816,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.7265625186264515,
+      "pose_delta_position": 0.6666666865348816
+    },
+    {
+      "frame_index": 69,
+      "reference_frame": 49,
+      "middle_frame": 61,
+      "current_frame": 65,
+      "similarity": 0.9626407064497471,
+      "delete_frame": 59,
+      "delete_range": "59-60-61",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 59.43484604358673,
+      "confidence": 0.9626407064497471,
+      "semantic_similarity": 0.9626407064497471,
+      "final_similarity": 0.9626407064497471,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 59.43484604358673,
+      "geometry_similarity": 0.9626407064497471,
+      "depth_difference": 0.037359293550252914,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.7169265106298387,
+      "geometry_confidence": 0.9626407064497471,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 59 60 61 62 63 64",
+      "window_after": "0 44 49 62 63 64 65 66 67",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": -0.29947916232049465,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": -0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.598958320915699,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 72,
+      "reference_frame": 49,
+      "middle_frame": 64,
+      "current_frame": 68,
+      "similarity": 0.9235045164823532,
+      "delete_frame": 62,
+      "delete_range": "62-63-64",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 135.76659094542265,
+      "confidence": 0.9235045164823532,
+      "semantic_similarity": 0.9235045164823532,
+      "final_similarity": 0.9235045164823532,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 135.76659094542265,
+      "geometry_similarity": 0.9235045164823532,
+      "depth_difference": 0.07649548351764679,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6233817726735651,
+      "geometry_confidence": 0.9235045164823532,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 62 63 64 65 66 67",
+      "window_after": "0 44 49 65 66 67 68 69 70",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": -0.35937499441206455,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": -0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.598958320915699,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 75,
+      "reference_frame": 49,
+      "middle_frame": 67,
+      "current_frame": 71,
+      "similarity": 0.8916351646184921,
+      "delete_frame": 65,
+      "delete_range": "65-66-67",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 54.604887031018734,
+      "confidence": 0.8916351646184921,
+      "semantic_similarity": 0.8916351646184921,
+      "final_similarity": 0.8916351646184921,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 54.604887031018734,
+      "geometry_similarity": 0.8916351646184921,
+      "depth_difference": 0.10836483538150787,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "pose_viewpoint_change_protect_memory|prev=KEEP",
+      "unified_memory_score": 0.39475006031329773,
+      "geometry_confidence": 0.8916351646184921,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 65 66 67 68 69 70",
+      "window_after": "0 44 49 68 69 70 71 72 73",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": -0.17968749441206455,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 0.0,
+      "delta_yaw": 0.1796875,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.0,
+      "rotation_magnitude": 0.1796875,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.0
+    },
+    {
+      "frame_index": 78,
+      "reference_frame": 49,
+      "middle_frame": 70,
+      "current_frame": 74,
+      "similarity": 0.8994546011090279,
+      "delete_frame": 68,
+      "delete_range": "68-69-70",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 53.30778984352946,
+      "confidence": 0.8994546011090279,
+      "semantic_similarity": 0.8994546011090279,
+      "final_similarity": 0.8994546011090279,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 53.30778984352946,
+      "geometry_similarity": 0.8994546011090279,
+      "depth_difference": 0.10054539889097214,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "pose_viewpoint_change_protect_memory|prev=KEEP",
+      "unified_memory_score": 0.40626055796609994,
+      "geometry_confidence": 0.8994546011090279,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 68 69 70 71 72 73",
+      "window_after": "0 44 49 71 72 73 74 75 76",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 7.333333313465118,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 0.0,
+      "delta_yaw": 0.1796875,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.0,
+      "rotation_magnitude": 0.1796875,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.0
+    },
+    {
+      "frame_index": 81,
+      "reference_frame": 49,
+      "middle_frame": 73,
+      "current_frame": 77,
+      "similarity": 0.8972756192088127,
+      "delete_frame": 71,
+      "delete_range": "71-72-73",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 129.26651607267559,
+      "confidence": 0.8972756192088127,
+      "semantic_similarity": 0.8972756192088127,
+      "final_similarity": 0.8972756192088127,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 129.26651607267559,
+      "geometry_similarity": 0.8972756192088127,
+      "depth_difference": 0.10272438079118729,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6472566371943487,
+      "geometry_confidence": 0.8972756192088127,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 71 72 73 74 75 76",
+      "window_after": "0 44 49 74 75 76 77 78 79",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 6.999999970197678,
+      "pose_yaw": -0.04003905691206455,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": -0.3333333432674408,
+      "delta_yaw": -0.0400390625,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0400390625,
+      "pose_confidence": 0.400390625,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 84,
+      "reference_frame": 49,
+      "middle_frame": 76,
+      "current_frame": 80,
+      "similarity": 0.9160353243350983,
+      "delete_frame": 74,
+      "delete_range": "74-75-76",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 118.84243204258382,
+      "confidence": 0.9160353243350983,
+      "semantic_similarity": 0.9160353243350983,
+      "final_similarity": 0.9160353243350983,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 118.84243204258382,
+      "geometry_similarity": 0.9160353243350983,
+      "depth_difference": 0.08396467566490173,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.6612485196796906,
+      "geometry_confidence": 0.9160353243350983,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 44 49 74 75 76 77 78 79",
+      "window_after": "0 44 49 77 78 79 80 81 82",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 7.999999970197678,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0400390625,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0,
+      "rotation_magnitude": 0.0400390625,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0
+    },
+    {
+      "frame_index": 87,
+      "reference_frame": 49,
+      "middle_frame": 79,
+      "current_frame": 83,
+      "similarity": 0.9533735662698746,
+      "delete_frame": 44,
+      "delete_range": "44-77",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 119.0861901268363,
+      "confidence": 0.9533735662698746,
+      "semantic_similarity": 0.9533735662698746,
+      "final_similarity": 0.9533735662698746,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 119.0861901268363,
+      "geometry_similarity": 0.9533735662698746,
+      "depth_difference": 0.04662643373012543,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "INSERT",
+      "policy": "physmem_rule",
+      "transition": "pose_forward_progression_preserve_progression|prev=KEEP",
+      "unified_memory_score": 0.4427541682458206,
+      "geometry_confidence": 0.9533735662698746,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_insert",
+      "window_before": "0 44 49 77 78 79 80 81 82",
+      "window_after": "0 49 78 79 80 81 82 83 84",
+      "pose_x": 0.0,
+      "pose_z": 8.999999970197678,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": -0.6666666865348816,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.201850436175566,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.201850436175566
+    },
+    {
+      "frame_index": 90,
+      "reference_frame": 78,
+      "middle_frame": 81,
+      "current_frame": 85,
+      "similarity": 0.919994480907917,
+      "delete_frame": 79,
+      "delete_range": "79-80-81",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 110.9104158822447,
+      "confidence": 0.919994480907917,
+      "semantic_similarity": 0.919994480907917,
+      "final_similarity": 0.919994480907917,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 110.9104158822447,
+      "geometry_similarity": 0.919994480907917,
+      "depth_difference": 0.08000551909208298,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": false,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=INSERT",
+      "unified_memory_score": 0.5917136845657197,
+      "geometry_confidence": 0.919994480907917,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 49 78 79 80 81 82 83 84",
+      "window_after": "0 49 78 82 83 84 85 86 87",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 9.999999970197678,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0540925565309005,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0540925565309005
+    },
+    {
+      "frame_index": 93,
+      "reference_frame": 78,
+      "middle_frame": 84,
+      "current_frame": 88,
+      "similarity": 0.9093884006142616,
+      "delete_frame": 82,
+      "delete_range": "82-83-84",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 68.58425214886665,
+      "confidence": 0.9093884006142616,
+      "semantic_similarity": 0.9093884006142616,
+      "final_similarity": 0.9093884006142616,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 68.58425214886665,
+      "geometry_similarity": 0.9093884006142616,
+      "depth_difference": 0.09061159938573837,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.6618325132367779,
+      "geometry_confidence": 0.9093884006142616,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 49 78 82 83 84 85 86 87",
+      "window_after": "0 49 78 85 86 87 88 89 90",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 10.999999970197678,
+      "pose_yaw": -0.08007811941206455,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 1.0,
+      "delta_yaw": -0.080078125,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0540925565309005,
+      "rotation_magnitude": 0.080078125,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0540925565309005
+    },
+    {
+      "frame_index": 96,
+      "reference_frame": 78,
+      "middle_frame": 87,
+      "current_frame": 91,
+      "similarity": 0.9328694567084312,
+      "delete_frame": 85,
+      "delete_range": "85-86-87",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 97.6062819827348,
+      "confidence": 0.9328694567084312,
+      "semantic_similarity": 0.9328694567084312,
+      "final_similarity": 0.9328694567084312,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 97.6062819827348,
+      "geometry_similarity": 0.9328694567084312,
+      "depth_difference": 0.06713054329156876,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.5418845712595171,
+      "geometry_confidence": 0.9328694567084312,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 49 78 85 86 87 88 89 90",
+      "window_after": "0 49 78 88 89 90 91 92 93",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 11.999999970197678,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 1.0,
+      "delta_yaw": 0.080078125,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0,
+      "rotation_magnitude": 0.080078125,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0
+    },
+    {
+      "frame_index": 99,
+      "reference_frame": 78,
+      "middle_frame": 90,
+      "current_frame": 94,
+      "similarity": 0.9321771934628487,
+      "delete_frame": 49,
+      "delete_range": "49-88",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 136.95414899848402,
+      "confidence": 0.9321771934628487,
+      "semantic_similarity": 0.9321771934628487,
+      "final_similarity": 0.9321771934628487,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 136.95414899848402,
+      "geometry_similarity": 0.9321771934628487,
+      "depth_difference": 0.06782280653715134,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "INSERT",
+      "policy": "physmem_rule",
+      "transition": "pose_forward_progression_preserve_progression|prev=KEEP",
+      "unified_memory_score": 0.44772583067161714,
+      "geometry_confidence": 0.9321771934628487,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_insert",
+      "window_before": "0 49 78 88 89 90 91 92 93",
+      "window_after": "0 78 89 90 91 92 93 94 95",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 12.999999970197678,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0540925565309005,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0540925565309005
+    },
+    {
+      "frame_index": 102,
+      "reference_frame": 89,
+      "middle_frame": 92,
+      "current_frame": 96,
+      "similarity": 0.9890993079170585,
+      "delete_frame": 90,
+      "delete_range": "90-91-92",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 166.7927938979119,
+      "confidence": 0.9890993079170585,
+      "semantic_similarity": 0.9890993079170585,
+      "final_similarity": 0.9890993079170585,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 166.7927938979119,
+      "geometry_similarity": 0.9890993079170585,
+      "depth_difference": 0.010900692082941532,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": false,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=INSERT",
+      "unified_memory_score": 0.65585946833264,
+      "geometry_confidence": 0.9890993079170585,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 78 89 90 91 92 93 94 95",
+      "window_after": "0 78 89 93 94 95 96 97 98",
+      "pose_x": 0.0,
+      "pose_z": 13.999999970197678,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 1.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 1.0540925565309005,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 1.0540925565309005
+    },
+    {
+      "frame_index": 105,
+      "reference_frame": 89,
+      "middle_frame": 95,
+      "current_frame": 99,
+      "similarity": 0.9350618869066238,
+      "delete_frame": 93,
+      "delete_range": "93-94-95",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 148.1606171000749,
+      "confidence": 0.9350618869066238,
+      "semantic_similarity": 0.9350618869066238,
+      "final_similarity": 0.9350618869066238,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 148.1606171000749,
+      "geometry_similarity": 0.9350618869066238,
+      "depth_difference": 0.06493811309337616,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.5643100452635619,
+      "geometry_confidence": 0.9350618869066238,
+      "intent_state": "Walk",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 78 89 93 94 95 96 97 98",
+      "window_after": "0 78 89 96 97 98 99 100 101",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 14.66666665673256,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 0.6666666865348816,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.7453560147132695,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.7453560147132695
+    },
+    {
+      "frame_index": 108,
+      "reference_frame": 89,
+      "middle_frame": 98,
+      "current_frame": 102,
+      "similarity": 0.9632559269666672,
+      "delete_frame": 96,
+      "delete_range": "96-97-98",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 146.33168186992407,
+      "confidence": 0.9632559269666672,
+      "semantic_similarity": 0.9632559269666672,
+      "final_similarity": 0.9632559269666672,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 146.33168186992407,
+      "geometry_similarity": 0.9632559269666672,
+      "depth_difference": 0.036744073033332825,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.580286601754815,
+      "geometry_confidence": 0.9632559269666672,
+      "intent_state": "Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 78 89 96 97 98 99 100 101",
+      "window_after": "0 78 89 99 100 101 102 103 104",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 14.66666665673256,
+      "pose_yaw": 5.587935447692871e-09,
+      "pose_pitch": 0.0,
+      "delta_x": 0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": 0.0,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.3333333432674408
+    },
+    {
+      "frame_index": 111,
+      "reference_frame": 89,
+      "middle_frame": 101,
+      "current_frame": 105,
+      "similarity": 0.9814636185765266,
+      "delete_frame": 99,
+      "delete_range": "99-100-101",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 149.16905318386853,
+      "confidence": 0.9814636185765266,
+      "semantic_similarity": 0.9814636185765266,
+      "final_similarity": 0.9814636185765266,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 149.16905318386853,
+      "geometry_similarity": 0.9814636185765266,
+      "depth_difference": 0.018536381423473358,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_keep_validated|prev=KEEP",
+      "unified_memory_score": 0.6042489567961522,
+      "geometry_confidence": 0.9814636185765266,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 78 89 99 100 101 102 103 104",
+      "window_after": "0 78 89 102 103 104 105 106 107",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 14.66666665673256,
+      "pose_yaw": -0.17968749441206455,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 0.0,
+      "delta_yaw": -0.1796875,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.0,
+      "rotation_magnitude": 0.1796875,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.0
+    },
+    {
+      "frame_index": 114,
+      "reference_frame": 89,
+      "middle_frame": 104,
+      "current_frame": 108,
+      "similarity": 0.9714765790849924,
+      "delete_frame": 102,
+      "delete_range": "102-103-104",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 73.4173369128257,
+      "confidence": 0.9714765790849924,
+      "semantic_similarity": 0.9714765790849924,
+      "final_similarity": 0.9714765790849924,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 73.4173369128257,
+      "geometry_similarity": 0.9714765790849924,
+      "depth_difference": 0.02852342091500759,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "pose_viewpoint_change_protect_memory|prev=KEEP",
+      "unified_memory_score": 0.5640674562100767,
+      "geometry_confidence": 0.9714765790849924,
+      "intent_state": "Turn Left",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 78 89 102 103 104 105 106 107",
+      "window_after": "0 78 89 105 106 107 108 109 110",
+      "pose_x": 0.6666666865348816,
+      "pose_z": 14.66666665673256,
+      "pose_yaw": -0.35937499441206455,
+      "pose_pitch": 0.0,
+      "delta_x": 0.0,
+      "delta_z": 0.0,
+      "delta_yaw": -0.1796875,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.0,
+      "rotation_magnitude": 0.1796875,
+      "pose_confidence": 1.0,
+      "pose_delta_position": 0.0
+    },
+    {
+      "frame_index": 117,
+      "reference_frame": 89,
+      "middle_frame": 107,
+      "current_frame": 111,
+      "similarity": 0.9612711183726788,
+      "delete_frame": 105,
+      "delete_range": "105-106-107",
+      "memory_size": 9,
+      "matching_points": 225280,
+      "orb_runtime_ms": 0.0,
+      "lightglue_runtime_ms": 0.0,
+      "runtime_ms": 96.76648420281708,
+      "confidence": 0.9612711183726788,
+      "semantic_similarity": 0.9612711183726788,
+      "final_similarity": 0.9612711183726788,
+      "spatial_alpha": 0.0,
+      "average_displacement": 0.0,
+      "median_displacement": 0.0,
+      "maximum_displacement": 0.0,
+      "depth_runtime_ms": 96.76648420281708,
+      "geometry_similarity": 0.9612711183726788,
+      "depth_difference": 0.03872888162732124,
+      "depth_metric": "l1",
+      "depth_cache_hit_reference": true,
+      "depth_cache_hit_current": false,
+      "memory_state": "KEEP",
+      "policy": "physmem_rule",
+      "transition": "proposal_insert_explained_by_camera_motion|prev=KEEP",
+      "unified_memory_score": 0.7093760530431997,
+      "geometry_confidence": 0.9612711183726788,
+      "intent_state": "Turn Right",
+      "estimator": "depth",
+      "decision": "physmem_keep",
+      "window_before": "0 78 89 105 106 107 108 109 110",
+      "window_after": "0 78 89 108 109 110 111 112 113",
+      "pose_x": 0.3333333432674408,
+      "pose_z": 14.66666665673256,
+      "pose_yaw": -0.29947916232049465,
+      "pose_pitch": 0.0,
+      "delta_x": -0.3333333432674408,
+      "delta_z": 0.0,
+      "delta_yaw": 0.0598958320915699,
+      "delta_pitch": 0.0,
+      "movement_magnitude": 0.3333333432674408,
+      "rotation_magnitude": 0.0598958320915699,
+      "pose_confidence": 0.598958320915699,
+      "pose_delta_position": 0.3333333432674408
+    }
+  ]
+}

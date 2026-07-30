@@ -7,11 +7,12 @@
 #
 # Copy the variable block first, then run commands one by one.
 
-export MODEL_DIR=/home/chenyiyang/Phys-Mem/Matrix-Game-2.0
+export REPO=/home/chenyiyang/Phys-Mem
+export MODEL_DIR=$REPO/Matrix-Game-2.0
 export CKPT=$MODEL_DIR/base_distilled_model/base_distill.safetensors
-export DEPTH_CKPT=/home/chenyiyang/Phys-Mem/checkpoints/depth_anything_v2_vits.pth
-export CONFIG=configs/inference_yaml/inference_universal.yaml
-export IMG=demo_images/universal/0011.png
+export DEPTH_CKPT=$REPO/checkpoints/depth_anything_v2_vits.pth
+export CONFIG=$REPO/configs/inference_yaml/inference_universal.yaml
+export IMG=$REPO/demo_images/universal/0011.png
 
 echo CONFIG=$CONFIG
 echo CKPT=$CKPT
@@ -124,7 +125,8 @@ python inference.py \
   --memory_scheduler physmem \
   --evidence_mode physmem \
   --fusion_mode weighted \
-  --action_preset default
+  --action_preset default \
+  --use_pose_memory true
 
 
 ############################
@@ -231,7 +233,8 @@ python inference.py \
   --memory_scheduler physmem \
   --evidence_mode physmem \
   --fusion_mode weighted \
-  --action_preset default
+  --action_preset default \
+  --use_pose_memory true
 
 
 ############################
@@ -338,7 +341,8 @@ python inference.py \
   --memory_scheduler physmem \
   --evidence_mode physmem \
   --fusion_mode weighted \
-  --action_preset physmem_stress
+  --action_preset physmem_stress \
+  --use_pose_memory true
 
 
 ############################
@@ -445,7 +449,8 @@ python inference.py \
   --memory_scheduler physmem \
   --evidence_mode physmem \
   --fusion_mode weighted \
-  --action_preset physmem_stress
+  --action_preset physmem_stress \
+  --use_pose_memory true
 
 
 ############################
@@ -457,3 +462,27 @@ grep "kv_policy" outputs/v2/stress_action/exp60/physmem/stableworld_debug/stable
 python evaluation/visualization/plot_experiment_record.py \
   --records outputs/v2/stress_action/exp60/physmem/stableworld_debug/experiment_tracking/experiments/Experiment001/logs/experiment_records.csv \
   --output_dir outputs/v2/stress_action/exp60/physmem/paper_figures
+
+############################
+# Pose ablation / stress_action / exp120
+############################
+
+# physmem_pose_off
+python inference.py \
+  --config_path "$CONFIG" \
+  --checkpoint_path "$CKPT" \
+  --pretrained_model_path "$MODEL_DIR" \
+  --img_path "$IMG" \
+  --output_folder outputs/v2/stress_action/exp120/physmem_pose_off \
+  --num_output_frames 120 \
+  --evict_mode true \
+  --stableworld_debug \
+  --similarity_estimator depth \
+  --depth_model vits \
+  --depth_checkpoint "$DEPTH_CKPT" \
+  --depth_metric l1 \
+  --memory_scheduler physmem \
+  --evidence_mode physmem \
+  --fusion_mode weighted \
+  --action_preset physmem_stress \
+  --use_pose_memory false

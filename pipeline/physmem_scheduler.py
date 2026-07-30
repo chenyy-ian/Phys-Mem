@@ -188,6 +188,8 @@ class EvidenceValidator:
     ) -> str:
         if explanation == "viewpoint_change" and intent_confidence >= 0.30:
             return "support" if proposal.state == "KEEP" else "reject"
+        if explanation == "viewpoint_locomotion" and intent_confidence >= 0.30:
+            return "neutral"
         if explanation in {"locomotion", "vertical_motion"} and intent_confidence >= 0.50:
             if proposal.state == "KEEP":
                 return "support"
@@ -206,6 +208,8 @@ class EvidenceValidator:
             return "idle"
         if intent_state in {"Turn Left", "Turn Right"}:
             return "viewpoint_change"
+        if intent_state == "Viewpoint Locomotion":
+            return "viewpoint_locomotion"
         if intent_state in {"Forward", "Backward", "Left", "Right", "Walk", "Run"}:
             return "locomotion"
         if intent_state == "Jump":
@@ -251,6 +255,15 @@ class PoseValidator:
         yaw_delta = PoseMemory.yaw_delta(pose_state, nearest_pose)
         delta_position = float(np.sqrt(pose_state.delta_x * pose_state.delta_x + pose_state.delta_z * pose_state.delta_z))
         delta_yaw = abs(float(pose_state.delta_yaw))
+        if delta_yaw >= self.stability.viewpoint_rotation_threshold and delta_position > self.stability.viewpoint_translation_threshold:
+            return PoseValidation(
+                event="viewpoint_locomotion",
+                validation="support_insert",
+                pose_distance=nearest_distance,
+                yaw_delta=yaw_delta,
+                nearest_frame_id=nearest_id,
+                reasons=[f"delta_yaw={delta_yaw:.4f}", f"delta_position={delta_position:.4f}"],
+            )
 
         if delta_yaw >= self.stability.viewpoint_rotation_threshold and delta_position <= self.stability.viewpoint_translation_threshold:
             return PoseValidation(
@@ -414,10 +427,12 @@ class PhysMemScheduler(MemoryScheduler):
         sim_threshold: float,
         policy: MemoryPolicy | None = None,
         stability: StrategyStabilityConfig | None = None,
+        use_pose_memory: bool = True,
     ):
         super().__init__(sim_threshold=sim_threshold)
         self.policy = policy or MemoryPolicy(stable_score=sim_threshold)
         self.stability = stability or StrategyStabilityConfig()
+        self.use_pose_memory = bool(use_pose_memory)
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
         self.pose_memory = PoseMemory()
@@ -443,14 +458,18 @@ class PhysMemScheduler(MemoryScheduler):
             intent_state=intent_state,
             intent_confidence=intent_confidence,
         )
-        pose_validation = self.pose_validator.validate(
-            pose_state,
-            self.pose_memory,
-            reference_frame_id=memory_buffer.reference_frame_id,
-            middle_frame_id=memory_buffer.middle_frame_id,
-        )
+        if self.use_pose_memory:
+            pose_validation = self.pose_validator.validate(
+                pose_state,
+                self.pose_memory,
+                reference_frame_id=memory_buffer.reference_frame_id,
+                middle_frame_id=memory_buffer.middle_frame_id,
+            )
+        else:
+            pose_validation = PoseValidation(event="pose_disabled", validation="neutral", reasons=["use_pose_memory=false"])
         memory_state, transition = self.state_machine.transition(proposal, validation, pose_validation)
-        self.pose_memory.insert(memory_buffer.current_frame_id, pose_state)
+        if self.use_pose_memory:
+            self.pose_memory.insert(memory_buffer.current_frame_id, pose_state)
         keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state)
         score = float(
             unified_memory_score

@@ -85,6 +85,9 @@ def _intent_explanation(evidences: Dict[str, EvidenceValue]) -> str:
     intent = evidences.get("intent")
     if intent is None or not intent.available:
         return "unknown"
+    explanation = intent.metadata.get("action_explanation")
+    if explanation:
+        return str(explanation)
     state = str(intent.metadata.get("intent_state", "Unknown"))
     if state in {"Idle", ""}:
         return "idle"

@@ -17,6 +17,12 @@ from utils.wan_wrapper import WanDiffusionWrapper
 from safetensors.torch import load_file
 
 
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in {"1", "true", "yes", "y", "on"}
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_path", type=str, default="configs/inference_yaml/inference_universal.yaml", help="Path to the config file")
@@ -45,6 +51,7 @@ def parse_args():
     parser.add_argument("--memory_scheduler", type=str, default="stableworld", choices=["stableworld", "physmem"], help="Memory scheduler used by StableWorld")
     parser.add_argument("--evidence_mode", type=str, default="single", choices=["single", "multi", "fusion", "physmem"], help="Evidence collection mode. Use single for baseline comparisons and multi for full Phys-Mem.")
     parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress"], help="Action preset used to build keyboard/mouse conditions")
+    parser.add_argument("--use_pose_memory", type=str2bool, default=True, help="Enable lightweight pose memory for PhysMem scheduling")
     args = parser.parse_args()
     return args
 
@@ -172,7 +179,8 @@ class InteractiveGameInference:
                 fusion_weight_geometry=self.args.fusion_weight_geometry,
                 fusion_weight_intent=self.args.fusion_weight_intent,
                 memory_scheduler_name=self.args.memory_scheduler,
-                evidence_mode=self.args.evidence_mode
+                evidence_mode=self.args.evidence_mode,
+                use_pose_memory=self.args.use_pose_memory,
             )
 
         videos_tensor = torch.cat(videos, dim=1)

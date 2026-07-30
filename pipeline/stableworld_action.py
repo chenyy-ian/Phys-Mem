@@ -50,6 +50,11 @@ class ActionState:
     keyboard_vector: List[float]
     mouse_vector: List[float]
     pose_state: PoseState | None = None
+    view_intent: str = "None"
+    move_intent: str = "None"
+    has_view_motion: bool = False
+    has_move_motion: bool = False
+    action_explanation: str = "idle"
 
 
 class PoseTracker:
@@ -68,7 +73,7 @@ class PoseTracker:
         self.pitch = 0.0
 
     def update(self, action_state: ActionState) -> PoseState:
-        delta_x, delta_z = self._translation_delta(action_state.keyboard_vector, action_state.intent_state)
+        delta_x, delta_z = self._translation_delta(action_state.keyboard_vector, action_state.move_intent)
         delta_yaw, delta_pitch = self._rotation_delta(action_state.mouse_vector)
         self.x += delta_x
         self.z += delta_z
@@ -153,28 +158,50 @@ class ActionParser:
         rotation_speed = float(np.linalg.norm(mouse_vec)) if mouse_vec else 0.0
         movement_speed = float(np.linalg.norm(keyboard_vec)) if keyboard_vec else 0.0
 
-        intent = "Idle"
-        confidence = 0.5
+        has_view_motion = rotation_speed > self.rotation_threshold
+        has_move_motion = movement_speed > self.movement_threshold
+        view_intent = "None"
+        move_intent = "None"
+        view_confidence = 0.0
+        move_confidence = 0.0
 
-        if rotation_speed > self.rotation_threshold:
+        if has_view_motion:
             dx = mouse_vec[1] if len(mouse_vec) > 1 else mouse_vec[0]
-            intent = "Turn Right" if dx > 0 else "Turn Left"
-            confidence = min(1.0, rotation_speed / max(self.rotation_threshold * 5.0, 1e-6))
-        elif movement_speed > self.movement_threshold:
+            view_intent = "Turn Right" if dx > 0 else "Turn Left"
+            view_confidence = min(1.0, rotation_speed / max(self.rotation_threshold * 5.0, 1e-6))
+
+        if has_move_motion:
             dominant = int(np.argmax(np.abs(keyboard_vec))) if keyboard_vec else -1
             if len(keyboard_vec) == 4:
-                intent = ["Forward", "Backward", "Left", "Right"][dominant]
+                move_intent = ["Forward", "Backward", "Left", "Right"][dominant]
             elif len(keyboard_vec) == 2:
-                intent = ["Forward", "Backward"][dominant]
+                move_intent = ["Forward", "Backward"][dominant]
             elif len(keyboard_vec) == 7:
-                intent = ["Idle", "Jump", "Unknown", "Turn Left", "Turn Right", "Left", "Right"][dominant]
+                move_intent = ["Idle", "Jump", "Unknown", "Turn Left", "Turn Right", "Left", "Right"][dominant]
             else:
-                intent = "Walk"
+                move_intent = "Walk"
             if movement_speed >= self.run_threshold:
-                intent = "Run" if intent in {"Forward", "Walk"} else intent
-            elif intent == "Forward":
-                intent = "Walk"
-            confidence = min(1.0, movement_speed / max(self.movement_threshold * 5.0, 1e-6))
+                move_intent = "Run" if move_intent in {"Forward", "Walk"} else move_intent
+            elif move_intent == "Forward":
+                move_intent = "Walk"
+            move_confidence = min(1.0, movement_speed / max(self.movement_threshold * 5.0, 1e-6))
+
+        if has_view_motion and has_move_motion:
+            intent = "Viewpoint Locomotion"
+            explanation = "viewpoint_locomotion"
+            confidence = max(view_confidence, move_confidence)
+        elif has_view_motion:
+            intent = view_intent
+            explanation = "viewpoint_change"
+            confidence = view_confidence
+        elif has_move_motion:
+            intent = move_intent
+            explanation = "lateral_motion" if move_intent in {"Left", "Right"} else "locomotion"
+            confidence = move_confidence
+        else:
+            intent = "Idle"
+            explanation = "idle"
+            confidence = 0.5
 
         return ActionState(
             frame_index=int(frame_index),
@@ -184,6 +211,11 @@ class ActionParser:
             movement_speed=movement_speed,
             keyboard_vector=keyboard_vec,
             mouse_vector=mouse_vec,
+            view_intent=view_intent,
+            move_intent=move_intent,
+            has_view_motion=bool(has_view_motion),
+            has_move_motion=bool(has_move_motion),
+            action_explanation=explanation,
         )
 
 
@@ -299,6 +331,11 @@ class ActionIntentEngine:
                 "intent_confidence",
                 "rotation_speed",
                 "movement_speed",
+                "view_intent",
+                "move_intent",
+                "has_view_motion",
+                "has_move_motion",
+                "action_explanation",
                 "keyboard_vector",
                 "mouse_vector",
                 "pose_x",

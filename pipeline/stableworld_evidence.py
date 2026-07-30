@@ -61,6 +61,8 @@ class EvidenceCollector:
 
     @staticmethod
     def _action_explanation(action_state: ActionState) -> str:
+        if getattr(action_state, "action_explanation", None):
+            return action_state.action_explanation
         if action_state.intent_state in {"Turn Left", "Turn Right"} or action_state.rotation_speed > 0:
             return "viewpoint_change"
         if action_state.intent_state in {"Forward", "Backward", "Left", "Right", "Walk", "Run"}:
@@ -148,6 +150,11 @@ class EvidenceCollector:
             metadata={
                 "intent_state": action_state.intent_state,
                 "action_explanation": action_explanation,
+                "view_intent": getattr(action_state, "view_intent", "None"),
+                "move_intent": getattr(action_state, "move_intent", "None"),
+                "has_view_motion": bool(getattr(action_state, "has_view_motion", False)),
+                "has_move_motion": bool(getattr(action_state, "has_move_motion", False)),
+                "is_viewpoint_locomotion": action_explanation == "viewpoint_locomotion",
                 "is_viewpoint_change": action_explanation == "viewpoint_change",
                 "is_world_change_evidence": False,
                 "rotation_speed": float(action_state.rotation_speed),

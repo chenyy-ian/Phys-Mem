@@ -316,6 +316,12 @@ class StableWorldDebugLogger:
                     "rotation_magnitude",
                     "pose_confidence",
                     "pose_delta_position",
+                    "view_intent",
+                    "move_intent",
+                    "has_view_motion",
+                    "has_move_motion",
+                    "action_explanation",
+                    "use_pose_memory",
                 ],
             )
             writer.writeheader()
@@ -606,6 +612,7 @@ def decide_and_update_window_ids_tri_9(
     memory_scheduler_name: str = "stableworld",
     evidence_mode: str = "single",
     evidence_collector: EvidenceCollector | None = None,
+    use_pose_memory: bool = True,
     num_frame_per_block: int = 1,
     mode: str = "universal",
 ) -> tuple[int, list, float, str]:
@@ -627,6 +634,7 @@ def decide_and_update_window_ids_tri_9(
         memory_scheduler_name=memory_scheduler_name,
         evidence_mode=evidence_mode,
         evidence_collector=evidence_collector,
+        use_pose_memory=use_pose_memory,
         num_frame_per_block=num_frame_per_block,
         mode=mode,
     )
@@ -651,6 +659,7 @@ def schedule_stableworld_window_tri_9(
     evidence_mode: str = "single",
     evidence_collector: EvidenceCollector | None = None,
     physmem_scheduler: PhysMemScheduler | None = None,
+    use_pose_memory: bool = True,
     num_frame_per_block: int = 1,
     mode: str = "universal",
 ) -> tuple[int, list, float, str]:
@@ -706,7 +715,11 @@ def schedule_stableworld_window_tri_9(
         debug_logger.log_fusion_result(frame_index, similarity_estimator_name, fusion_result, action_state)
 
     if memory_scheduler_name == "physmem":
-        scheduler = physmem_scheduler or PhysMemScheduler(sim_threshold=sim_threshold, policy=MemoryPolicy(stable_score=sim_threshold))
+        scheduler = physmem_scheduler or PhysMemScheduler(
+            sim_threshold=sim_threshold,
+            policy=MemoryPolicy(stable_score=sim_threshold),
+            use_pose_memory=use_pose_memory,
+        )
         geometry_evidence = evidence_bundle.evidences.get("geometry")
         geometry_confidence_for_policy = float(geometry_evidence.confidence if geometry_evidence is not None else 1.0)
         intent_state_for_policy = getattr(action_state, "intent_state", "Unknown")
@@ -775,6 +788,12 @@ def schedule_stableworld_window_tri_9(
             SemanticScore=float(evidence_bundle.evidences.get("semantic").score) if evidence_bundle.evidences.get("semantic") is not None else None,
             FusionDecision=decision.memory_state,
             pose_event="",
+            use_pose_memory=bool(use_pose_memory),
+            view_intent=getattr(action_state, "view_intent", "None"),
+            move_intent=getattr(action_state, "move_intent", "None"),
+            has_view_motion=bool(getattr(action_state, "has_view_motion", False)),
+            has_move_motion=bool(getattr(action_state, "has_move_motion", False)),
+            action_explanation=getattr(action_state, "action_explanation", ""),
             pose_delta_position=pose_delta_position,
             **pose_extra,
         )
@@ -857,6 +876,14 @@ def schedule_stableworld_window_tri_9(
         if pose_state is not None:
             debug_record.update(pose_state.as_dict())
             debug_record["pose_delta_position"] = float(np.sqrt(pose_state.delta_x * pose_state.delta_x + pose_state.delta_z * pose_state.delta_z))
+        debug_record.update({
+            "view_intent": getattr(action_state, "view_intent", "None"),
+            "move_intent": getattr(action_state, "move_intent", "None"),
+            "has_view_motion": bool(getattr(action_state, "has_view_motion", False)),
+            "has_move_motion": bool(getattr(action_state, "has_move_motion", False)),
+            "action_explanation": getattr(action_state, "action_explanation", ""),
+            "use_pose_memory": bool(use_pose_memory),
+        })
         debug_logger.log_decision(debug_record)
         debug_logger.log_physmem(debug_record)
 
@@ -925,6 +952,7 @@ class CausalInferencePipeline(torch.nn.Module):
         fusion_weight_intent: float = 0.25,
         memory_scheduler_name: str = "stableworld",
         evidence_mode: str = "single",
+        use_pose_memory: bool = True,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -971,7 +999,11 @@ class CausalInferencePipeline(torch.nn.Module):
             fusion_engine=FusionEngine(fusion_config),
             action_engine=ActionIntentEngine(),
         )
-        physmem_scheduler = PhysMemScheduler(sim_threshold=Threshold, policy=MemoryPolicy(stable_score=Threshold)) if memory_scheduler_name == "physmem" else None
+        physmem_scheduler = PhysMemScheduler(
+            sim_threshold=Threshold,
+            policy=MemoryPolicy(stable_score=Threshold),
+            use_pose_memory=use_pose_memory,
+        ) if memory_scheduler_name == "physmem" else None
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
             debug_logger = StableWorldDebugLogger(debug_output_dir, fusion_config=fusion_config)
@@ -995,6 +1027,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     "fusion_weight_geometry": fusion_weight_geometry,
                     "fusion_weight_intent": fusion_weight_intent,
                     "memory_scheduler": memory_scheduler_name,
+                    "use_pose_memory": use_pose_memory,
                     "evidence_mode": evidence_mode,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
@@ -1122,6 +1155,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     evidence_mode=evidence_mode,
                     evidence_collector=evidence_collector,
                     physmem_scheduler=physmem_scheduler,
+                    use_pose_memory=use_pose_memory,
                     num_frame_per_block=self.num_frame_per_block,
                     mode=mode,
                 )
