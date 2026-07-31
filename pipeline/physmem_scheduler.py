@@ -96,6 +96,25 @@ class RevisitGateResult:
     reason: str = ""
 
 
+@dataclass
+class ActionModeState:
+    mode: str = "Unknown"
+    confidence: float = 0.0
+    reason: str = ""
+
+
+@dataclass
+class MemoryCandidate:
+    frame_id: int | None = None
+    candidate_type: str = "none"
+    pose_distance: float = 0.0
+    yaw_delta: float = 0.0
+    confidence: float = 0.0
+    source: str = ""
+    validated: bool = False
+    reject_reason: str = ""
+
+
 class PoseMemory:
     def __init__(self, max_size: int = 512):
         self.max_size = int(max_size)
@@ -225,12 +244,16 @@ class KeyPoseMemory:
         pose_validation: PoseValidation,
         memory_state: str,
         revisit_gate: RevisitGateResult | None = None,
+        action_mode: ActionModeState | None = None,
     ) -> KeyPoseAnchor | None:
         if pose is None:
             return None
         revisit_gate = revisit_gate or RevisitGateResult()
+        action_mode = action_mode or ActionModeState()
         if not self.anchors:
             return self.insert(frame_id, pose, "initial_anchor", view_state, "first_pose")
+        if action_mode.mode == "Locomotion Only":
+            return None
         if revisit_gate.force_progress and memory_state == "INSERT":
             return self.insert(frame_id, pose, "forward_anchor", view_state, revisit_gate.reason)
         if view_state.state == "Novel View" and memory_state == "INSERT":
@@ -329,6 +352,23 @@ class TrajectoryTracker:
         return "right" if local_x > 0 else "left"
 
 
+class ActionModeClassifier:
+    def classify(self, pose_state: PoseState | None, intent_state: str = "Unknown") -> ActionModeState:
+        if pose_state is None:
+            return ActionModeState(mode="Unknown", confidence=0.0, reason="pose_missing")
+        movement = float(getattr(pose_state, "movement_magnitude", 0.0) or 0.0)
+        rotation = float(getattr(pose_state, "rotation_magnitude", 0.0) or 0.0)
+        has_move = movement > 0.10
+        has_view = rotation > 0.02
+        if has_move and has_view:
+            return ActionModeState(mode="Viewpoint Locomotion", confidence=float(np.clip(max(movement, rotation), 0.0, 1.0)), reason=f"move={movement:.4f}:view={rotation:.4f}:{intent_state}")
+        if has_move:
+            return ActionModeState(mode="Locomotion Only", confidence=float(np.clip(movement, 0.0, 1.0)), reason=f"move={movement:.4f}:{intent_state}")
+        if has_view:
+            return ActionModeState(mode="View Rotation Only", confidence=float(np.clip(rotation / 0.18, 0.0, 1.0)), reason=f"view={rotation:.4f}:{intent_state}")
+        return ActionModeState(mode="Idle", confidence=1.0, reason=f"idle:{intent_state}")
+
+
 class PoseAwareMemorySelector:
     def __init__(self, stability: StrategyStabilityConfig):
         self.stability = stability
@@ -339,11 +379,19 @@ class PoseAwareMemorySelector:
         key_pose_memory: KeyPoseMemory,
         pose_state: PoseState | None,
         revisit_gate: RevisitGateResult | None = None,
+        action_mode: ActionModeState | None = None,
     ) -> MemorySelection:
         if pose_state is None:
             return MemorySelection(reason="pose_missing")
 
         revisit_gate = revisit_gate or RevisitGateResult()
+        action_mode = action_mode or ActionModeState()
+        if action_mode.mode == "Locomotion Only":
+            return MemorySelection(mode="orb_locomotion", reason=action_mode.reason)
+        if action_mode.mode == "View Rotation Only":
+            return MemorySelection(mode="protect_current", reason=action_mode.reason)
+        if revisit_gate.force_progress and action_mode.mode == "Viewpoint Locomotion":
+            return MemorySelection(mode="hybrid_locomotion", reason=revisit_gate.reason)
         if revisit_gate.force_progress:
             return MemorySelection(mode="progress_anchor", reason=revisit_gate.reason)
         if revisit_gate.protect_current:
@@ -386,12 +434,20 @@ class RevisitGate:
         view_state: ViewState,
         trajectory_state: TrajectoryState,
         pose_state: PoseState | None,
+        action_mode: ActionModeState | None = None,
     ) -> RevisitGateResult:
         if pose_state is None:
             return RevisitGateResult(reason="pose_missing")
+        action_mode = action_mode or ActionModeState()
+        if action_mode.mode == "Locomotion Only":
+            return RevisitGateResult(reason="locomotion_only_orb_dominant")
         if view_state.state == "View Transition":
             return RevisitGateResult(protect_current=True, reason="view_transition")
-        if trajectory_state.should_progress:
+        if action_mode.mode == "View Rotation Only":
+            return RevisitGateResult(protect_current=True, reason="view_rotation_only")
+        if trajectory_state.should_progress and action_mode.mode == "Viewpoint Locomotion":
+            return RevisitGateResult(force_progress=True, reason=f"hybrid_{trajectory_state.direction}_progress")
+        if trajectory_state.should_progress and action_mode.mode not in {"Locomotion Only"}:
             return RevisitGateResult(force_progress=True, reason=f"trajectory_{trajectory_state.direction}_progress")
         movement = float(getattr(pose_state, "movement_magnitude", 0.0) or 0.0)
         if view_state.state == "Revisit":
@@ -728,19 +784,21 @@ class PhysMemStateMachine:
         view_state: ViewState | None = None,
         memory_selection: MemorySelection | None = None,
         trajectory_state: TrajectoryState | None = None,
+        action_mode: ActionModeState | None = None,
     ) -> tuple[str, str]:
         pose_validation = pose_validation or PoseValidation()
         view_state = view_state or ViewState()
         memory_selection = memory_selection or MemorySelection()
         trajectory_state = trajectory_state or TrajectoryState()
-        candidate, reason = self._candidate_transition(proposal, validation, pose_validation, view_state, memory_selection, trajectory_state)
-        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation, pose_validation, view_state, memory_selection, trajectory_state)
+        action_mode = action_mode or ActionModeState()
+        candidate, reason = self._candidate_transition(proposal, validation, pose_validation, view_state, memory_selection, trajectory_state, action_mode)
+        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation, pose_validation, view_state, memory_selection, trajectory_state, action_mode)
         self._update_cooldown(constrained)
         previous = self.last_state
         self.last_state = constrained
         if constraint_reason:
-            return constrained, f"{reason}|{constraint_reason}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
-        return constrained, f"{reason}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
+            return constrained, f"{reason}|{constraint_reason}|mode={action_mode.mode}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
+        return constrained, f"{reason}|mode={action_mode.mode}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
 
     def _candidate_transition(
         self,
@@ -750,11 +808,18 @@ class PhysMemStateMachine:
         view_state: ViewState,
         memory_selection: MemorySelection,
         trajectory_state: TrajectoryState,
+        action_mode: ActionModeState,
     ) -> tuple[str, str]:
-        if trajectory_state.should_progress and view_state.state != "View Transition":
+        if action_mode.mode == "Locomotion Only":
+            return proposal.state, f"action_mode_locomotion_orb_{proposal.state.lower()}"
+        if action_mode.mode == "View Rotation Only":
+            return "KEEP", "action_mode_view_rotation_protect"
+        if action_mode.mode == "Viewpoint Locomotion" and trajectory_state.should_progress and proposal.state == "INSERT":
+            return "INSERT", f"action_mode_hybrid_{trajectory_state.direction}_insert"
+        if trajectory_state.should_progress and view_state.state != "View Transition" and action_mode.mode != "Locomotion Only":
             return "INSERT", f"trajectory_{trajectory_state.direction}_progress"
 
-        if memory_selection.mode == "progress_anchor":
+        if memory_selection.mode in {"progress_anchor", "hybrid_locomotion"}:
             return "INSERT", f"selection_{memory_selection.mode}"
         if memory_selection.mode in {"hard_retrieve_anchor", "soft_reuse_anchor"}:
             return "KEEP", f"selection_{memory_selection.mode}"
@@ -807,11 +872,16 @@ class PhysMemStateMachine:
         view_state: ViewState,
         memory_selection: MemorySelection,
         trajectory_state: TrajectoryState,
+        action_mode: ActionModeState,
     ) -> tuple[str, str]:
+        if action_mode.mode == "Locomotion Only":
+            if candidate in {"REPLACE", "EVICT", "REFRESH"}:
+                return proposal.state, f"locomotion_orb_blocks_{candidate.lower()}"
+            return candidate, ""
         if trajectory_state.should_progress and candidate in {"REPLACE", "EVICT", "KEEP"} and view_state.state != "View Transition":
             return "INSERT", f"trajectory_{trajectory_state.direction}_blocks_pullback"
 
-        if memory_selection.mode == "progress_anchor" and candidate in {"KEEP", "REPLACE", "EVICT"}:
+        if memory_selection.mode in {"progress_anchor", "hybrid_locomotion"} and candidate in {"KEEP", "REPLACE", "EVICT"}:
             return "INSERT", "selection_progress_anchor_blocks_pullback"
         if memory_selection.mode in {"hard_retrieve_anchor", "soft_reuse_anchor", "protect_current"} and candidate in {"REPLACE", "EVICT"}:
             return "KEEP", f"selection_{memory_selection.mode}_blocks_hard_update"
@@ -889,12 +959,14 @@ class PhysMemScheduler(MemoryScheduler):
         self.memory_selector = PoseAwareMemorySelector(self.stability)
         self.revisit_gate = RevisitGate(self.stability)
         self.trajectory_tracker = TrajectoryTracker(self.stability)
+        self.action_mode_classifier = ActionModeClassifier()
         self.state_machine = PhysMemStateMachine(self.policy, self.stability)
         self.last_view_state = ViewState(state="Not Evaluated", confidence=0.0)
         self.last_key_anchor: KeyPoseAnchor | None = None
         self.last_memory_selection = MemorySelection()
         self.last_trajectory_state = TrajectoryState()
         self.last_revisit_gate = RevisitGateResult(reason="not_evaluated")
+        self.last_action_mode = ActionModeState(mode="Not Evaluated")
 
     def schedule(
         self,
@@ -918,8 +990,9 @@ class PhysMemScheduler(MemoryScheduler):
         if self.use_pose_memory:
             view_state = self.view_state_classifier.classify(pose_state, self.pose_memory)
             trajectory_state = self.trajectory_tracker.update(pose_state)
-            revisit_gate = self.revisit_gate.evaluate(view_state, trajectory_state, pose_state)
-            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state, revisit_gate)
+            action_mode = self.action_mode_classifier.classify(pose_state, intent_state)
+            revisit_gate = self.revisit_gate.evaluate(view_state, trajectory_state, pose_state, action_mode)
+            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state, revisit_gate, action_mode)
             pose_validation = self.pose_validator.validate(
                 pose_state,
                 self.pose_memory,
@@ -931,12 +1004,14 @@ class PhysMemScheduler(MemoryScheduler):
             view_state = ViewState(state="Pose Disabled", confidence=0.0, reasons=["use_pose_memory=false"])
             trajectory_state = TrajectoryState(motion_state="Pose Disabled", reason="use_pose_memory=false")
             revisit_gate = RevisitGateResult(reason="use_pose_memory=false")
+            action_mode = ActionModeState(mode="Pose Disabled", reason="use_pose_memory=false")
             memory_selection = MemorySelection(mode="pose_disabled", reason="use_pose_memory=false")
             pose_validation = PoseValidation(event="pose_disabled", validation="neutral", reasons=["use_pose_memory=false"])
         self.last_view_state = view_state
         self.last_memory_selection = memory_selection
         self.last_trajectory_state = trajectory_state
         self.last_revisit_gate = revisit_gate
+        self.last_action_mode = action_mode
         memory_state, transition = self.state_machine.transition(
             proposal,
             validation,
@@ -944,6 +1019,7 @@ class PhysMemScheduler(MemoryScheduler):
             view_state,
             memory_selection,
             trajectory_state,
+            action_mode,
         )
         self.last_key_anchor = None
         if self.use_pose_memory:
@@ -955,6 +1031,7 @@ class PhysMemScheduler(MemoryScheduler):
                 pose_validation,
                 memory_state,
                 revisit_gate,
+                action_mode,
             )
         keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state, memory_selection)
         score = float(
@@ -1006,6 +1083,10 @@ class PhysMemScheduler(MemoryScheduler):
             keep_ids = [frame_id for frame_id in ids if frame_id not in set(delete_ids)]
             return keep_ids, delete_ids, delete_ids, 2, "refresh_uncertain", 1
         if memory_state == "INSERT":
+            if memory_selection is not None and memory_selection.mode in {"orb_locomotion", "progress_anchor", "hybrid_locomotion"}:
+                delete_ids = ids[:3]
+                keep_ids = ids[3:]
+                return keep_ids, delete_ids, [], 3, "append_locomotion", 0
             delete_ids = [ids[1], ids[3]]
             keep_ids = [frame_id for frame_id in ids if frame_id not in set(delete_ids)]
             return keep_ids, delete_ids, [], 2, "append_compact", 0

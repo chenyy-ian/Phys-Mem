@@ -344,6 +344,10 @@ class StableWorldDebugLogger:
                     "selection_is_hard_retrieve",
                     "selection_is_soft_reuse",
                     "selection_is_progress",
+                    "action_mode",
+                    "action_mode_confidence",
+                    "action_mode_reason",
+                    "scheduler_path",
                     "view_intent",
                     "move_intent",
                     "has_view_motion",
@@ -843,6 +847,15 @@ def schedule_stableworld_window_tri_9(
                 "selection_is_soft_reuse": selection_mode == "soft_reuse_anchor",
                 "selection_is_progress": selection_mode == "progress_anchor",
             }
+        action_mode_for_log = getattr(scheduler, "last_action_mode", None) if memory_scheduler_name == "physmem" else None
+        action_mode_extra = {}
+        if action_mode_for_log is not None:
+            action_mode_extra = {
+                "action_mode": getattr(action_mode_for_log, "mode", "Unknown"),
+                "action_mode_confidence": float(getattr(action_mode_for_log, "confidence", 0.0) or 0.0),
+                "action_mode_reason": getattr(action_mode_for_log, "reason", ""),
+                "scheduler_path": f"{getattr(action_mode_for_log, 'mode', 'Unknown')}->{memory_selection_extra.get('memory_selection_mode', '')}",
+            }
         experiment_recorder.record(
             frame_id=int(frame_index),
             current_frame_id=int(current_id),
@@ -881,6 +894,7 @@ def schedule_stableworld_window_tri_9(
             **memory_selection_extra,
             **trajectory_extra,
             **revisit_gate_extra,
+            **action_mode_extra,
             **pose_extra,
         )
 
@@ -1007,6 +1021,14 @@ def schedule_stableworld_window_tri_9(
                 "selection_is_hard_retrieve": selection_mode == "hard_retrieve_anchor",
                 "selection_is_soft_reuse": selection_mode == "soft_reuse_anchor",
                 "selection_is_progress": selection_mode == "progress_anchor",
+            })
+        action_mode_for_log = getattr(scheduler, "last_action_mode", None) if memory_scheduler_name == "physmem" else None
+        if action_mode_for_log is not None:
+            debug_record.update({
+                "action_mode": getattr(action_mode_for_log, "mode", "Unknown"),
+                "action_mode_confidence": float(getattr(action_mode_for_log, "confidence", 0.0) or 0.0),
+                "action_mode_reason": getattr(action_mode_for_log, "reason", ""),
+                "scheduler_path": f"{getattr(action_mode_for_log, 'mode', 'Unknown')}->{debug_record.get('memory_selection_mode', '')}",
             })
         debug_record.update({
             "view_intent": getattr(action_state, "view_intent", "None"),
