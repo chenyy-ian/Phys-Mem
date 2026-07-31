@@ -87,6 +87,15 @@ class TrajectoryState:
     reason: str = ""
 
 
+@dataclass
+class RevisitGateResult:
+    allow_retrieve: bool = False
+    allow_soft_reuse: bool = False
+    force_progress: bool = False
+    protect_current: bool = False
+    reason: str = ""
+
+
 class PoseMemory:
     def __init__(self, max_size: int = 512):
         self.max_size = int(max_size)
@@ -215,14 +224,18 @@ class KeyPoseMemory:
         view_state: ViewState,
         pose_validation: PoseValidation,
         memory_state: str,
+        revisit_gate: RevisitGateResult | None = None,
     ) -> KeyPoseAnchor | None:
         if pose is None:
             return None
+        revisit_gate = revisit_gate or RevisitGateResult()
         if not self.anchors:
             return self.insert(frame_id, pose, "initial_anchor", view_state, "first_pose")
+        if revisit_gate.force_progress and memory_state == "INSERT":
+            return self.insert(frame_id, pose, "forward_anchor", view_state, revisit_gate.reason)
         if view_state.state == "Novel View" and memory_state == "INSERT":
             return self.insert(frame_id, pose, "novel_view_anchor", view_state, "novel_view_insert")
-        if view_state.state == "Revisit":
+        if view_state.state == "Revisit" and revisit_gate.allow_retrieve:
             return self.insert(frame_id, pose, "revisit_anchor", view_state, "pose_revisit")
         if view_state.state == "View Transition":
             return self.insert(frame_id, pose, "turn_anchor", view_state, "view_transition")
@@ -325,24 +338,31 @@ class PoseAwareMemorySelector:
         view_state: ViewState,
         key_pose_memory: KeyPoseMemory,
         pose_state: PoseState | None,
+        revisit_gate: RevisitGateResult | None = None,
     ) -> MemorySelection:
         if pose_state is None:
             return MemorySelection(reason="pose_missing")
 
+        revisit_gate = revisit_gate or RevisitGateResult()
+        if revisit_gate.force_progress:
+            return MemorySelection(mode="progress_anchor", reason=revisit_gate.reason)
+        if revisit_gate.protect_current:
+            return MemorySelection(mode="protect_current", reason=revisit_gate.reason)
+
         nearest_id, nearest_anchor, nearest_distance = key_pose_memory.nearest(pose_state)
-        if view_state.state == "Revisit" and nearest_anchor is not None:
+        if view_state.state == "Revisit" and nearest_anchor is not None and revisit_gate.allow_retrieve:
             return MemorySelection(
-                mode="retrieve_anchor",
+                mode="hard_retrieve_anchor",
                 target_frame_id=nearest_anchor.frame_id,
                 anchor_type=nearest_anchor.anchor_type,
                 reason=f"revisit_nearest_anchor:{nearest_distance:.4f}",
             )
 
-        if view_state.state == "Known View" and nearest_anchor is not None:
+        if view_state.state == "Known View" and nearest_anchor is not None and revisit_gate.allow_soft_reuse:
             yaw_delta = PoseMemory.yaw_delta(pose_state, nearest_anchor.pose)
             if nearest_distance <= self.stability.known_view_distance_threshold and yaw_delta <= self.stability.known_view_yaw_threshold:
                 return MemorySelection(
-                    mode="reuse_anchor",
+                    mode="soft_reuse_anchor",
                     target_frame_id=nearest_anchor.frame_id,
                     anchor_type=nearest_anchor.anchor_type,
                     reason=f"known_view_anchor:{nearest_distance:.4f}:{yaw_delta:.4f}",
@@ -355,6 +375,36 @@ class PoseAwareMemorySelector:
             return MemorySelection(mode="protect_current", reason="view_transition")
 
         return MemorySelection(reason=f"view_state={view_state.state}")
+
+
+class RevisitGate:
+    def __init__(self, stability: StrategyStabilityConfig):
+        self.stability = stability
+
+    def evaluate(
+        self,
+        view_state: ViewState,
+        trajectory_state: TrajectoryState,
+        pose_state: PoseState | None,
+    ) -> RevisitGateResult:
+        if pose_state is None:
+            return RevisitGateResult(reason="pose_missing")
+        if view_state.state == "View Transition":
+            return RevisitGateResult(protect_current=True, reason="view_transition")
+        if trajectory_state.should_progress:
+            return RevisitGateResult(force_progress=True, reason=f"trajectory_{trajectory_state.direction}_progress")
+        movement = float(getattr(pose_state, "movement_magnitude", 0.0) or 0.0)
+        if view_state.state == "Revisit":
+            if movement <= self.stability.forward_progress_threshold:
+                return RevisitGateResult(allow_retrieve=True, reason="stable_revisit")
+            return RevisitGateResult(reason=f"revisit_blocked_by_motion:{movement:.4f}")
+        if view_state.state == "Known View":
+            if movement <= self.stability.forward_progress_threshold:
+                return RevisitGateResult(allow_soft_reuse=True, reason="stable_known_view")
+            return RevisitGateResult(reason=f"known_view_blocked_by_motion:{movement:.4f}")
+        if view_state.state == "Novel View":
+            return RevisitGateResult(force_progress=True, reason="novel_view_progress")
+        return RevisitGateResult(reason=f"view_state={view_state.state}")
 
 
 class ProposalEngine:
@@ -704,7 +754,9 @@ class PhysMemStateMachine:
         if trajectory_state.should_progress and view_state.state != "View Transition":
             return "INSERT", f"trajectory_{trajectory_state.direction}_progress"
 
-        if memory_selection.mode in {"retrieve_anchor", "reuse_anchor"}:
+        if memory_selection.mode == "progress_anchor":
+            return "INSERT", f"selection_{memory_selection.mode}"
+        if memory_selection.mode in {"hard_retrieve_anchor", "soft_reuse_anchor"}:
             return "KEEP", f"selection_{memory_selection.mode}"
         if memory_selection.mode == "protect_current":
             return "KEEP", "selection_protect_current"
@@ -759,7 +811,9 @@ class PhysMemStateMachine:
         if trajectory_state.should_progress and candidate in {"REPLACE", "EVICT", "KEEP"} and view_state.state != "View Transition":
             return "INSERT", f"trajectory_{trajectory_state.direction}_blocks_pullback"
 
-        if memory_selection.mode in {"retrieve_anchor", "reuse_anchor", "protect_current"} and candidate in {"REPLACE", "EVICT"}:
+        if memory_selection.mode == "progress_anchor" and candidate in {"KEEP", "REPLACE", "EVICT"}:
+            return "INSERT", "selection_progress_anchor_blocks_pullback"
+        if memory_selection.mode in {"hard_retrieve_anchor", "soft_reuse_anchor", "protect_current"} and candidate in {"REPLACE", "EVICT"}:
             return "KEEP", f"selection_{memory_selection.mode}_blocks_hard_update"
         if memory_selection.mode == "create_anchor" and candidate in {"REPLACE", "EVICT"}:
             return "INSERT", "selection_create_anchor_prefers_insert"
@@ -798,6 +852,8 @@ class PhysMemStateMachine:
             return "INSERT", "stepwise_transition"
 
         if candidate == "INSERT" and validation.world_change_probability < self.stability.insert_enter_probability:
+            if trajectory_state.should_progress or memory_selection.mode == "progress_anchor":
+                return "INSERT", "trajectory_progress_bypasses_insert_hysteresis"
             if proposal.state == "KEEP":
                 return "KEEP", f"insert_hysteresis_enter={self.stability.insert_enter_probability:.2f}"
 
@@ -831,12 +887,14 @@ class PhysMemScheduler(MemoryScheduler):
         self.pose_validator = PoseValidator(self.stability)
         self.view_state_classifier = ViewStateClassifier(self.stability)
         self.memory_selector = PoseAwareMemorySelector(self.stability)
+        self.revisit_gate = RevisitGate(self.stability)
         self.trajectory_tracker = TrajectoryTracker(self.stability)
         self.state_machine = PhysMemStateMachine(self.policy, self.stability)
         self.last_view_state = ViewState(state="Not Evaluated", confidence=0.0)
         self.last_key_anchor: KeyPoseAnchor | None = None
         self.last_memory_selection = MemorySelection()
         self.last_trajectory_state = TrajectoryState()
+        self.last_revisit_gate = RevisitGateResult(reason="not_evaluated")
 
     def schedule(
         self,
@@ -860,7 +918,8 @@ class PhysMemScheduler(MemoryScheduler):
         if self.use_pose_memory:
             view_state = self.view_state_classifier.classify(pose_state, self.pose_memory)
             trajectory_state = self.trajectory_tracker.update(pose_state)
-            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state)
+            revisit_gate = self.revisit_gate.evaluate(view_state, trajectory_state, pose_state)
+            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state, revisit_gate)
             pose_validation = self.pose_validator.validate(
                 pose_state,
                 self.pose_memory,
@@ -871,11 +930,13 @@ class PhysMemScheduler(MemoryScheduler):
         else:
             view_state = ViewState(state="Pose Disabled", confidence=0.0, reasons=["use_pose_memory=false"])
             trajectory_state = TrajectoryState(motion_state="Pose Disabled", reason="use_pose_memory=false")
+            revisit_gate = RevisitGateResult(reason="use_pose_memory=false")
             memory_selection = MemorySelection(mode="pose_disabled", reason="use_pose_memory=false")
             pose_validation = PoseValidation(event="pose_disabled", validation="neutral", reasons=["use_pose_memory=false"])
         self.last_view_state = view_state
         self.last_memory_selection = memory_selection
         self.last_trajectory_state = trajectory_state
+        self.last_revisit_gate = revisit_gate
         memory_state, transition = self.state_machine.transition(
             proposal,
             validation,
@@ -893,6 +954,7 @@ class PhysMemScheduler(MemoryScheduler):
                 view_state,
                 pose_validation,
                 memory_state,
+                revisit_gate,
             )
         keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state, memory_selection)
         score = float(
@@ -936,7 +998,7 @@ class PhysMemScheduler(MemoryScheduler):
                 if target_id in ids:
                     keep_ids = self._protect_target(ids, keep_ids, delete_ids, target_id)
                     delete_ids = [frame_id for frame_id in ids if frame_id not in set(keep_ids)]
-                elif memory_selection.mode in {"retrieve_anchor", "reuse_anchor"}:
+                elif memory_selection.mode == "hard_retrieve_anchor":
                     keep_ids = [target_id] + keep_ids
             return keep_ids, delete_ids, [], 3, "preserve_anchor", 1
         if memory_state == "REFRESH":

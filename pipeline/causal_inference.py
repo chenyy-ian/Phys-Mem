@@ -336,6 +336,14 @@ class StableWorldDebugLogger:
                     "trajectory_distance",
                     "trajectory_should_progress",
                     "trajectory_confidence",
+                    "revisit_gate_allow_retrieve",
+                    "revisit_gate_allow_soft_reuse",
+                    "revisit_gate_force_progress",
+                    "revisit_gate_protect_current",
+                    "revisit_gate_reason",
+                    "selection_is_hard_retrieve",
+                    "selection_is_soft_reuse",
+                    "selection_is_progress",
                     "view_intent",
                     "move_intent",
                     "has_view_motion",
@@ -821,6 +829,20 @@ def schedule_stableworld_window_tri_9(
                 "trajectory_should_progress": bool(getattr(trajectory_for_log, "should_progress", False)),
                 "trajectory_confidence": float(getattr(trajectory_for_log, "confidence", 0.0) or 0.0),
             }
+        revisit_gate_for_log = getattr(scheduler, "last_revisit_gate", None) if memory_scheduler_name == "physmem" else None
+        revisit_gate_extra = {}
+        if revisit_gate_for_log is not None:
+            selection_mode = memory_selection_extra.get("memory_selection_mode", "")
+            revisit_gate_extra = {
+                "revisit_gate_allow_retrieve": bool(getattr(revisit_gate_for_log, "allow_retrieve", False)),
+                "revisit_gate_allow_soft_reuse": bool(getattr(revisit_gate_for_log, "allow_soft_reuse", False)),
+                "revisit_gate_force_progress": bool(getattr(revisit_gate_for_log, "force_progress", False)),
+                "revisit_gate_protect_current": bool(getattr(revisit_gate_for_log, "protect_current", False)),
+                "revisit_gate_reason": getattr(revisit_gate_for_log, "reason", ""),
+                "selection_is_hard_retrieve": selection_mode == "hard_retrieve_anchor",
+                "selection_is_soft_reuse": selection_mode == "soft_reuse_anchor",
+                "selection_is_progress": selection_mode == "progress_anchor",
+            }
         experiment_recorder.record(
             frame_id=int(frame_index),
             current_frame_id=int(current_id),
@@ -858,6 +880,7 @@ def schedule_stableworld_window_tri_9(
             **key_anchor_extra,
             **memory_selection_extra,
             **trajectory_extra,
+            **revisit_gate_extra,
             **pose_extra,
         )
 
@@ -971,6 +994,19 @@ def schedule_stableworld_window_tri_9(
                 "trajectory_distance": float(getattr(trajectory_for_log, "accumulated_distance", 0.0) or 0.0),
                 "trajectory_should_progress": bool(getattr(trajectory_for_log, "should_progress", False)),
                 "trajectory_confidence": float(getattr(trajectory_for_log, "confidence", 0.0) or 0.0),
+            })
+        revisit_gate_for_log = getattr(scheduler, "last_revisit_gate", None) if memory_scheduler_name == "physmem" else None
+        if revisit_gate_for_log is not None:
+            selection_mode = debug_record.get("memory_selection_mode", "")
+            debug_record.update({
+                "revisit_gate_allow_retrieve": bool(getattr(revisit_gate_for_log, "allow_retrieve", False)),
+                "revisit_gate_allow_soft_reuse": bool(getattr(revisit_gate_for_log, "allow_soft_reuse", False)),
+                "revisit_gate_force_progress": bool(getattr(revisit_gate_for_log, "force_progress", False)),
+                "revisit_gate_protect_current": bool(getattr(revisit_gate_for_log, "protect_current", False)),
+                "revisit_gate_reason": getattr(revisit_gate_for_log, "reason", ""),
+                "selection_is_hard_retrieve": selection_mode == "hard_retrieve_anchor",
+                "selection_is_soft_reuse": selection_mode == "soft_reuse_anchor",
+                "selection_is_progress": selection_mode == "progress_anchor",
             })
         debug_record.update({
             "view_intent": getattr(action_state, "view_intent", "None"),

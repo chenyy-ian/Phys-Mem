@@ -1,0 +1,38 @@
+frame_index,memory_state,decision,policy,transition,unified_memory_score,geometry_confidence,intent_state,delete_frame,memory_size
+9,KEEP,physmem_keep,physmem_rule,proposal_keep_validated|view=Novel View|selection=create_anchor|trajectory=Starting:right|prev=KEEP,0.6573440974361993,0.9852574449032545,Viewpoint Locomotion,3,9
+12,KEEP,physmem_keep,physmem_rule,selection_protect_current|view=View Transition|selection=protect_current|trajectory=Idle:none|prev=KEEP,0.6336017438365931,0.9785297457128763,Turn Left,6,9
+15,KEEP,physmem_keep,physmem_rule,selection_reuse_anchor|view=Known View|selection=reuse_anchor|trajectory=Starting:left|prev=KEEP,0.7273304110742593,0.9778285063803196,Viewpoint Locomotion,10,9
+18,KEEP,physmem_keep,physmem_rule,selection_reuse_anchor|view=Known View|selection=reuse_anchor|trajectory=Starting:right|prev=KEEP,0.512796006835811,0.933659628033638,Viewpoint Locomotion,13,9
+21,KEEP,physmem_keep,physmem_rule,selection_reuse_anchor|view=Known View|selection=reuse_anchor|trajectory=Starting:left|prev=KEEP,0.5489872870623149,0.9451231174170971,Viewpoint Locomotion,16,9
+24,KEEP,physmem_keep,physmem_rule,selection_retrieve_anchor|view=Revisit|selection=retrieve_anchor|trajectory=Starting:right|prev=KEEP,0.6567329209823256,0.9457472637295723,Viewpoint Locomotion,19,9
+27,KEEP,physmem_keep,physmem_rule,selection_protect_current|view=View Transition|selection=protect_current|trajectory=Idle:none|prev=KEEP,0.5303000448841964,0.9500038996338844,Turn Right,9,9
+30,KEEP,physmem_keep,physmem_rule,selection_retrieve_anchor|view=Revisit|selection=retrieve_anchor|trajectory=Starting:backward|prev=KEEP,0.5131984429346098,0.9339754730463028,Viewpoint Locomotion,24,9
+33,KEEP,physmem_keep,physmem_rule,selection_reuse_anchor|view=Known View|selection=reuse_anchor|trajectory=Starting:forward|prev=KEEP,0.49053956641422863,0.9296347498893738,Viewpoint Locomotion,27,9
+36,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=KEEP,0.4775649970620263,0.8985357359051704,Walk,1,9
+39,KEEP,physmem_keep,physmem_rule,trajectory_forward_progress|insert_hysteresis_enter=0.35|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=INSERT,0.6320551095784405,0.9694118481129408,Walk,32,9
+42,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=KEEP,0.4292198357534517,0.9464882984757423,Viewpoint Locomotion,2,9
+45,KEEP,physmem_keep,physmem_rule,trajectory_forward_progress|insert_hysteresis_enter=0.35|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=INSERT,0.5823576092701417,0.9355314448475838,Viewpoint Locomotion,37,9
+48,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=KEEP,0.5160961122763047,0.9610042199492455,Walk,31,9
+51,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=INSERT,0.4792888404706962,0.9277975484728813,Walk,36,9
+54,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=INSERT,0.5620263721464192,0.9359104186296463,Walk,41,9
+57,INSERT,physmem_insert,physmem_rule,pose_lateral_motion_preserve_progression|view=Known View|selection=current_window|trajectory=Starting:left|prev=INSERT,0.5645492171484003,0.9648057259619236,Left,43,9
+60,KEEP,physmem_keep,physmem_rule,selection_reuse_anchor|view=Known View|selection=reuse_anchor|trajectory=Starting:right|prev=INSERT,0.6082943429937318,0.974712485447526,Viewpoint Locomotion,48,9
+63,KEEP,physmem_keep,physmem_rule,selection_protect_current|view=View Transition|selection=protect_current|trajectory=Idle:none|prev=KEEP,0.5834975722114033,0.9609318040311337,Turn Left,51,9
+66,KEEP,physmem_keep,physmem_rule,selection_retrieve_anchor|view=Revisit|selection=retrieve_anchor|trajectory=Starting:left|prev=KEEP,0.602743941121959,0.9785962719470263,Viewpoint Locomotion,54,9
+69,KEEP,physmem_keep,physmem_rule,selection_retrieve_anchor|view=Revisit|selection=retrieve_anchor|trajectory=Starting:right|prev=KEEP,0.5633250279671387,0.9535057209432125,Viewpoint Locomotion,57,9
+72,INSERT,physmem_insert,physmem_rule,trajectory_right_progress|view=Revisit|selection=retrieve_anchor|trajectory=Progressing:right|prev=KEEP,0.5466673429881939,0.9685957357287407,Viewpoint Locomotion,45,9
+75,KEEP,physmem_keep,physmem_rule,selection_protect_current|view=View Transition|selection=protect_current|trajectory=Idle:none|prev=INSERT,0.5994517071525176,0.9560566581785679,Turn Right,62,9
+78,KEEP,physmem_keep,physmem_rule,selection_protect_current|view=View Transition|selection=protect_current|trajectory=Idle:none|prev=KEEP,0.5659926463466871,0.920579232275486,Turn Right,65,9
+81,KEEP,physmem_keep,physmem_rule,selection_retrieve_anchor|view=Revisit|selection=retrieve_anchor|trajectory=Starting:backward|prev=KEEP,0.5229229925472866,0.9199929386377335,Viewpoint Locomotion,68,9
+84,KEEP,physmem_keep,physmem_rule,selection_reuse_anchor|view=Known View|selection=reuse_anchor|trajectory=Starting:forward|prev=KEEP,0.5450894096762557,0.9312729164958,Viewpoint Locomotion,71,9
+87,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=KEEP,0.5577359778603452,0.963904794305563,Walk,47,9
+90,KEEP,physmem_keep,physmem_rule,trajectory_forward_progress|insert_hysteresis_enter=0.35|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=INSERT,0.6068698142831626,0.9618790708482265,Walk,76,9
+93,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=KEEP,0.5731285869592045,0.9507238417863846,Viewpoint Locomotion,61,9
+96,KEEP,physmem_keep,physmem_rule,trajectory_forward_progress|insert_hysteresis_enter=0.35|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=INSERT,0.6287430580259183,0.9665385633707047,Viewpoint Locomotion,81,9
+99,KEEP,physmem_keep,physmem_rule,trajectory_forward_progress|insert_hysteresis_enter=0.35|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=KEEP,0.5865872499926237,0.978321785107255,Walk,84,9
+102,INSERT,physmem_insert,physmem_rule,trajectory_forward_progress|view=Novel View|selection=create_anchor|trajectory=Progressing:forward|prev=KEEP,0.5828010953969431,0.9458210803568363,Walk,75,9
+105,KEEP,physmem_keep,physmem_rule,trajectory_forward_progress|insert_hysteresis_enter=0.35|view=Revisit|selection=retrieve_anchor|trajectory=Progressing:forward|prev=INSERT,0.6568629263843779,0.9793235883116722,Walk,89,9
+108,KEEP,physmem_keep,physmem_rule,selection_retrieve_anchor|view=Revisit|selection=retrieve_anchor|trajectory=Starting:right|prev=KEEP,0.599056574093952,0.979274844750762,Right,92,9
+111,KEEP,physmem_keep,physmem_rule,selection_protect_current|view=View Transition|selection=protect_current|trajectory=Idle:none|prev=KEEP,0.5914081515337306,0.976724224165082,Turn Left,93,9
+114,KEEP,physmem_keep,physmem_rule,selection_protect_current|view=View Transition|selection=protect_current|trajectory=Idle:none|prev=KEEP,0.5610063314878502,0.9658903516829014,Turn Left,98,9
+117,KEEP,physmem_keep,physmem_rule,selection_retrieve_anchor|view=Revisit|selection=retrieve_anchor|trajectory=Starting:left|prev=KEEP,0.5995116596200243,0.9583559632301331,Viewpoint Locomotion,102,9
