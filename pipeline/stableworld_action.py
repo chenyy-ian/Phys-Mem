@@ -17,6 +17,8 @@ class PoseState:
     pitch: float = 0.0
     delta_x: float = 0.0
     delta_z: float = 0.0
+    local_delta_x: float = 0.0
+    local_delta_z: float = 0.0
     delta_yaw: float = 0.0
     delta_pitch: float = 0.0
     movement_magnitude: float = 0.0
@@ -32,6 +34,8 @@ class PoseState:
             "pose_pitch": float(self.pitch),
             "delta_x": float(self.delta_x),
             "delta_z": float(self.delta_z),
+            "local_delta_x": float(self.local_delta_x),
+            "local_delta_z": float(self.local_delta_z),
             "delta_yaw": float(self.delta_yaw),
             "delta_pitch": float(self.delta_pitch),
             "movement_magnitude": float(self.movement_magnitude),
@@ -73,8 +77,10 @@ class PoseTracker:
         self.pitch = 0.0
 
     def update(self, action_state: ActionState) -> PoseState:
-        delta_x, delta_z = self._translation_delta(action_state.keyboard_vector, action_state.move_intent)
         delta_yaw, delta_pitch = self._rotation_delta(action_state.mouse_vector)
+        local_delta_x, local_delta_z = self._translation_delta(action_state.keyboard_vector, action_state.move_intent)
+        yaw_for_translation = self.yaw + 0.5 * delta_yaw
+        delta_x, delta_z = self._rotate_local_translation(local_delta_x, local_delta_z, yaw_for_translation)
         self.x += delta_x
         self.z += delta_z
         self.yaw += delta_yaw
@@ -90,6 +96,8 @@ class PoseTracker:
             pitch=float(self.pitch),
             delta_x=float(delta_x),
             delta_z=float(delta_z),
+            local_delta_x=float(local_delta_x),
+            local_delta_z=float(local_delta_z),
             delta_yaw=float(delta_yaw),
             delta_pitch=float(delta_pitch),
             movement_magnitude=movement,
@@ -128,6 +136,14 @@ class PoseTracker:
         if len(mouse_vec) > 1:
             return float(mouse_vec[1]) * self.rotation_scale, float(mouse_vec[0]) * self.rotation_scale
         return float(mouse_vec[0]) * self.rotation_scale, 0.0
+
+    @staticmethod
+    def _rotate_local_translation(local_x: float, local_z: float, yaw: float) -> tuple[float, float]:
+        cos_yaw = float(np.cos(yaw))
+        sin_yaw = float(np.sin(yaw))
+        world_x = local_x * cos_yaw + local_z * sin_yaw
+        world_z = local_z * cos_yaw - local_x * sin_yaw
+        return float(world_x), float(world_z)
 
 
 class ActionParser:
@@ -344,6 +360,8 @@ class ActionIntentEngine:
                 "pose_pitch",
                 "delta_x",
                 "delta_z",
+                "local_delta_x",
+                "local_delta_z",
                 "delta_yaw",
                 "delta_pitch",
                 "pose_movement_magnitude",
@@ -367,6 +385,8 @@ class ActionIntentEngine:
                     "pose_pitch": f"{pose.pitch:.6f}",
                     "delta_x": f"{pose.delta_x:.6f}",
                     "delta_z": f"{pose.delta_z:.6f}",
+                    "local_delta_x": f"{pose.local_delta_x:.6f}",
+                    "local_delta_z": f"{pose.local_delta_z:.6f}",
                     "delta_yaw": f"{pose.delta_yaw:.6f}",
                     "delta_pitch": f"{pose.delta_pitch:.6f}",
                     "pose_movement_magnitude": f"{pose.movement_magnitude:.6f}",

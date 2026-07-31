@@ -46,6 +46,47 @@ class PoseValidation:
     reasons: List[str] = field(default_factory=list)
 
 
+@dataclass
+class ViewState:
+    state: str = "Unknown"
+    confidence: float = 0.0
+    pose_distance: float = 0.0
+    yaw_delta: float = 0.0
+    nearest_frame_id: int | None = None
+    frame_gap: int = 0
+    reasons: List[str] = field(default_factory=list)
+
+
+@dataclass
+class KeyPoseAnchor:
+    frame_id: int
+    pose: PoseState
+    anchor_type: str
+    view_state: str
+    confidence: float
+    reason: str = ""
+
+
+@dataclass
+class MemorySelection:
+    mode: str = "current_window"
+    target_frame_id: int | None = None
+    anchor_type: str = ""
+    reason: str = ""
+
+
+@dataclass
+class TrajectoryState:
+    motion_state: str = "Idle"
+    direction: str = "none"
+    consecutive_motion_frames: int = 0
+    accumulated_distance: float = 0.0
+    yaw_stable: bool = True
+    should_progress: bool = False
+    confidence: float = 0.0
+    reason: str = ""
+
+
 class PoseMemory:
     def __init__(self, max_size: int = 512):
         self.max_size = int(max_size)
@@ -111,6 +152,209 @@ class StrategyStabilityConfig:
     yaw_stable_threshold: float = 0.20
     revisit_distance_threshold: float = 0.75
     revisit_yaw_threshold: float = 0.35
+    known_view_distance_threshold: float = 0.85
+    known_view_yaw_threshold: float = 0.45
+    novel_view_distance_threshold: float = 1.75
+    novel_view_yaw_threshold: float = 0.95
+    view_transition_rotation_threshold: float = 0.15
+    revisit_min_frame_gap: int = 12
+    key_anchor_min_frame_gap: int = 6
+    key_anchor_distance_threshold: float = 0.75
+    key_anchor_yaw_threshold: float = 0.35
+    trajectory_progress_min_frames: int = 2
+    trajectory_progress_distance: float = 0.25
+    trajectory_reset_rotation_threshold: float = 0.35
+
+
+class KeyPoseMemory:
+    def __init__(self, max_size: int = 64, stability: StrategyStabilityConfig | None = None):
+        self.max_size = int(max_size)
+        self.stability = stability or StrategyStabilityConfig()
+        self.anchors: Dict[int, KeyPoseAnchor] = {}
+        self.order: List[int] = []
+
+    def insert(self, frame_id: int, pose: PoseState | None, anchor_type: str, view_state: ViewState, reason: str = "") -> KeyPoseAnchor | None:
+        if pose is None:
+            return None
+        frame_id = int(frame_id)
+        existing_id, existing_anchor, existing_distance = self.nearest(pose)
+        existing_yaw = PoseMemory.yaw_delta(pose, existing_anchor.pose) if existing_anchor is not None else float("inf")
+        frame_gap = frame_id - int(existing_id) if existing_id is not None else self.stability.key_anchor_min_frame_gap
+        is_distinct = (
+            existing_id is None
+            or frame_gap >= self.stability.key_anchor_min_frame_gap
+            and (
+                existing_distance >= self.stability.key_anchor_distance_threshold
+                or existing_yaw >= self.stability.key_anchor_yaw_threshold
+                or anchor_type == "revisit_anchor"
+            )
+        )
+        if not is_distinct:
+            return None
+
+        anchor = KeyPoseAnchor(
+            frame_id=frame_id,
+            pose=pose,
+            anchor_type=anchor_type,
+            view_state=view_state.state,
+            confidence=float(view_state.confidence),
+            reason=reason,
+        )
+        if frame_id not in self.anchors:
+            self.order.append(frame_id)
+        self.anchors[frame_id] = anchor
+        while len(self.order) > self.max_size:
+            old = self.order.pop(0)
+            self.anchors.pop(old, None)
+        return anchor
+
+    def maybe_insert(
+        self,
+        frame_id: int,
+        pose: PoseState | None,
+        view_state: ViewState,
+        pose_validation: PoseValidation,
+        memory_state: str,
+    ) -> KeyPoseAnchor | None:
+        if pose is None:
+            return None
+        if not self.anchors:
+            return self.insert(frame_id, pose, "initial_anchor", view_state, "first_pose")
+        if view_state.state == "Novel View" and memory_state == "INSERT":
+            return self.insert(frame_id, pose, "novel_view_anchor", view_state, "novel_view_insert")
+        if view_state.state == "Revisit":
+            return self.insert(frame_id, pose, "revisit_anchor", view_state, "pose_revisit")
+        if view_state.state == "View Transition":
+            return self.insert(frame_id, pose, "turn_anchor", view_state, "view_transition")
+        if pose_validation.event in {"forward_progression", "lateral_motion"} and memory_state in {"KEEP", "INSERT"}:
+            return self.insert(frame_id, pose, "forward_anchor", view_state, pose_validation.event)
+        return None
+
+    def nearest(self, pose: PoseState | None, anchor_types: set[str] | None = None) -> tuple[int | None, KeyPoseAnchor | None, float]:
+        if pose is None or not self.anchors:
+            return None, None, float("inf")
+        best_id = None
+        best_anchor = None
+        best_distance = float("inf")
+        for frame_id, anchor in self.anchors.items():
+            if anchor_types is not None and anchor.anchor_type not in anchor_types:
+                continue
+            distance = PoseMemory.distance(pose, anchor.pose)
+            if distance < best_distance:
+                best_id = frame_id
+                best_anchor = anchor
+                best_distance = distance
+        return best_id, best_anchor, float(best_distance)
+
+
+class TrajectoryTracker:
+    def __init__(self, stability: StrategyStabilityConfig):
+        self.stability = stability
+        self.last_direction = "none"
+        self.consecutive_motion_frames = 0
+        self.accumulated_distance = 0.0
+
+    def update(self, pose_state: PoseState | None) -> TrajectoryState:
+        if pose_state is None:
+            self._reset()
+            return TrajectoryState(reason="pose_missing")
+
+        local_x = float(getattr(pose_state, "local_delta_x", pose_state.delta_x))
+        local_z = float(getattr(pose_state, "local_delta_z", pose_state.delta_z))
+        delta_yaw = abs(float(pose_state.delta_yaw))
+        distance = float(np.sqrt(local_x * local_x + local_z * local_z))
+        direction = self._dominant_direction(local_x, local_z, distance)
+
+        if direction == "none" or delta_yaw >= self.stability.trajectory_reset_rotation_threshold:
+            self._reset()
+            return TrajectoryState(
+                motion_state="Idle" if direction == "none" else "View Motion",
+                direction=direction,
+                yaw_stable=delta_yaw < self.stability.trajectory_reset_rotation_threshold,
+                reason=f"reset:direction={direction}:delta_yaw={delta_yaw:.4f}",
+            )
+
+        if direction == self.last_direction:
+            self.consecutive_motion_frames += 1
+            self.accumulated_distance += distance
+        else:
+            self.last_direction = direction
+            self.consecutive_motion_frames = 1
+            self.accumulated_distance = distance
+
+        should_progress = (
+            self.consecutive_motion_frames >= self.stability.trajectory_progress_min_frames
+            and self.accumulated_distance >= self.stability.trajectory_progress_distance
+        )
+        confidence = min(
+            1.0,
+            0.5 * min(self.consecutive_motion_frames / max(self.stability.trajectory_progress_min_frames, 1), 1.0)
+            + 0.5 * min(self.accumulated_distance / max(self.stability.trajectory_progress_distance, 1e-6), 1.0),
+        )
+        return TrajectoryState(
+            motion_state="Progressing" if should_progress else "Starting",
+            direction=direction,
+            consecutive_motion_frames=int(self.consecutive_motion_frames),
+            accumulated_distance=float(self.accumulated_distance),
+            yaw_stable=True,
+            should_progress=bool(should_progress),
+            confidence=float(confidence),
+            reason=f"direction={direction}:distance={distance:.4f}",
+        )
+
+    def _reset(self):
+        self.last_direction = "none"
+        self.consecutive_motion_frames = 0
+        self.accumulated_distance = 0.0
+
+    @staticmethod
+    def _dominant_direction(local_x: float, local_z: float, distance: float) -> str:
+        if distance <= 1e-6:
+            return "none"
+        if abs(local_z) >= abs(local_x):
+            return "forward" if local_z > 0 else "backward"
+        return "right" if local_x > 0 else "left"
+
+
+class PoseAwareMemorySelector:
+    def __init__(self, stability: StrategyStabilityConfig):
+        self.stability = stability
+
+    def select(
+        self,
+        view_state: ViewState,
+        key_pose_memory: KeyPoseMemory,
+        pose_state: PoseState | None,
+    ) -> MemorySelection:
+        if pose_state is None:
+            return MemorySelection(reason="pose_missing")
+
+        nearest_id, nearest_anchor, nearest_distance = key_pose_memory.nearest(pose_state)
+        if view_state.state == "Revisit" and nearest_anchor is not None:
+            return MemorySelection(
+                mode="retrieve_anchor",
+                target_frame_id=nearest_anchor.frame_id,
+                anchor_type=nearest_anchor.anchor_type,
+                reason=f"revisit_nearest_anchor:{nearest_distance:.4f}",
+            )
+
+        if view_state.state == "Known View" and nearest_anchor is not None:
+            yaw_delta = PoseMemory.yaw_delta(pose_state, nearest_anchor.pose)
+            if nearest_distance <= self.stability.known_view_distance_threshold and yaw_delta <= self.stability.known_view_yaw_threshold:
+                return MemorySelection(
+                    mode="reuse_anchor",
+                    target_frame_id=nearest_anchor.frame_id,
+                    anchor_type=nearest_anchor.anchor_type,
+                    reason=f"known_view_anchor:{nearest_distance:.4f}:{yaw_delta:.4f}",
+                )
+
+        if view_state.state == "Novel View":
+            return MemorySelection(mode="create_anchor", reason="novel_view")
+
+        if view_state.state == "View Transition":
+            return MemorySelection(mode="protect_current", reason="view_transition")
+
+        return MemorySelection(reason=f"view_state={view_state.state}")
 
 
 class ProposalEngine:
@@ -245,9 +489,39 @@ class PoseValidator:
         pose_memory: PoseMemory,
         reference_frame_id: int,
         middle_frame_id: int,
+        view_state: ViewState | None = None,
     ) -> PoseValidation:
         if pose_state is None:
             return PoseValidation(event="unknown", validation="neutral", reasons=["pose=missing"])
+
+        if view_state is not None:
+            if view_state.state == "View Transition":
+                return PoseValidation(
+                    event="view_transition",
+                    validation="reject_hard_update",
+                    pose_distance=view_state.pose_distance,
+                    yaw_delta=view_state.yaw_delta,
+                    nearest_frame_id=view_state.nearest_frame_id,
+                    reasons=view_state.reasons,
+                )
+            if view_state.state == "Novel View":
+                return PoseValidation(
+                    event="novel_view",
+                    validation="support_insert",
+                    pose_distance=view_state.pose_distance,
+                    yaw_delta=view_state.yaw_delta,
+                    nearest_frame_id=view_state.nearest_frame_id,
+                    reasons=view_state.reasons,
+                )
+            if view_state.state == "Revisit":
+                return PoseValidation(
+                    event="revisit",
+                    validation="support_keep",
+                    pose_distance=view_state.pose_distance,
+                    yaw_delta=view_state.yaw_delta,
+                    nearest_frame_id=view_state.nearest_frame_id,
+                    reasons=view_state.reasons,
+                )
 
         reference_pose = pose_memory.get(reference_frame_id)
         middle_pose = pose_memory.get(middle_frame_id)
@@ -311,6 +585,81 @@ class PoseValidator:
         )
 
 
+class ViewStateClassifier:
+    def __init__(self, stability: StrategyStabilityConfig):
+        self.stability = stability
+
+    def classify(self, pose_state: PoseState | None, pose_memory: PoseMemory) -> ViewState:
+        if pose_state is None:
+            return ViewState(state="Unknown", confidence=0.0, reasons=["pose=missing"])
+
+        nearest_id, nearest_pose, nearest_distance = pose_memory.nearest(pose_state)
+        yaw_delta = PoseMemory.yaw_delta(pose_state, nearest_pose)
+        frame_gap = 0 if nearest_id is None else max(0, int(pose_state.frame_index) - int(nearest_id))
+        delta_yaw = abs(float(pose_state.delta_yaw))
+        delta_position = float(np.sqrt(pose_state.delta_x * pose_state.delta_x + pose_state.delta_z * pose_state.delta_z))
+
+        base = {
+            "pose_distance": nearest_distance,
+            "yaw_delta": yaw_delta,
+            "nearest_frame_id": nearest_id,
+            "frame_gap": frame_gap,
+        }
+        if delta_yaw >= self.stability.view_transition_rotation_threshold:
+            return ViewState(
+                state="View Transition",
+                confidence=float(np.clip(delta_yaw / max(self.stability.view_transition_rotation_threshold * 2.0, 1e-6), 0.0, 1.0)),
+                reasons=[f"delta_yaw={delta_yaw:.4f}", f"delta_position={delta_position:.4f}"],
+                **base,
+            )
+
+        if (
+            nearest_id is not None
+            and frame_gap >= self.stability.revisit_min_frame_gap
+            and nearest_distance <= self.stability.revisit_distance_threshold
+            and yaw_delta <= self.stability.revisit_yaw_threshold
+        ):
+            distance_score = 1.0 - min(nearest_distance / max(self.stability.revisit_distance_threshold, 1e-6), 1.0)
+            yaw_score = 1.0 - min(yaw_delta / max(self.stability.revisit_yaw_threshold, 1e-6), 1.0)
+            return ViewState(
+                state="Revisit",
+                confidence=float(np.clip(0.5 * distance_score + 0.5 * yaw_score, 0.0, 1.0)),
+                reasons=[f"nearest={nearest_id}", f"frame_gap={frame_gap}", f"distance={nearest_distance:.4f}", f"yaw_delta={yaw_delta:.4f}"],
+                **base,
+            )
+
+        if (
+            nearest_id is None
+            or nearest_distance >= self.stability.novel_view_distance_threshold
+            or yaw_delta >= self.stability.novel_view_yaw_threshold
+        ):
+            distance_score = 0.0 if nearest_id is None else min(nearest_distance / max(self.stability.novel_view_distance_threshold, 1e-6), 1.0)
+            yaw_score = 0.0 if nearest_id is None else min(yaw_delta / max(self.stability.novel_view_yaw_threshold, 1e-6), 1.0)
+            return ViewState(
+                state="Novel View",
+                confidence=float(np.clip(max(distance_score, yaw_score), 0.0, 1.0)),
+                reasons=[f"nearest={nearest_id}", f"distance={nearest_distance:.4f}", f"yaw_delta={yaw_delta:.4f}"],
+                **base,
+            )
+
+        if nearest_distance <= self.stability.known_view_distance_threshold and yaw_delta <= self.stability.known_view_yaw_threshold:
+            distance_score = 1.0 - min(nearest_distance / max(self.stability.known_view_distance_threshold, 1e-6), 1.0)
+            yaw_score = 1.0 - min(yaw_delta / max(self.stability.known_view_yaw_threshold, 1e-6), 1.0)
+            return ViewState(
+                state="Known View",
+                confidence=float(np.clip(0.5 * distance_score + 0.5 * yaw_score, 0.0, 1.0)),
+                reasons=[f"nearest={nearest_id}", f"distance={nearest_distance:.4f}", f"yaw_delta={yaw_delta:.4f}"],
+                **base,
+            )
+
+        return ViewState(
+            state="Novel View",
+            confidence=0.5,
+            reasons=[f"ambiguous_distance={nearest_distance:.4f}", f"ambiguous_yaw_delta={yaw_delta:.4f}"],
+            **base,
+        )
+
+
 class PhysMemStateMachine:
     ORDER = {"KEEP": 0, "INSERT": 1, "REPLACE": 2, "EVICT": 3, "REFRESH": 1}
 
@@ -326,23 +675,49 @@ class PhysMemStateMachine:
         proposal: MemoryProposal,
         validation: EvidenceValidation,
         pose_validation: PoseValidation | None = None,
+        view_state: ViewState | None = None,
+        memory_selection: MemorySelection | None = None,
+        trajectory_state: TrajectoryState | None = None,
     ) -> tuple[str, str]:
         pose_validation = pose_validation or PoseValidation()
-        candidate, reason = self._candidate_transition(proposal, validation, pose_validation)
-        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation, pose_validation)
+        view_state = view_state or ViewState()
+        memory_selection = memory_selection or MemorySelection()
+        trajectory_state = trajectory_state or TrajectoryState()
+        candidate, reason = self._candidate_transition(proposal, validation, pose_validation, view_state, memory_selection, trajectory_state)
+        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation, pose_validation, view_state, memory_selection, trajectory_state)
         self._update_cooldown(constrained)
         previous = self.last_state
         self.last_state = constrained
         if constraint_reason:
-            return constrained, f"{reason}|{constraint_reason}|prev={previous}"
-        return constrained, f"{reason}|prev={previous}"
+            return constrained, f"{reason}|{constraint_reason}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
+        return constrained, f"{reason}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
 
     def _candidate_transition(
         self,
         proposal: MemoryProposal,
         validation: EvidenceValidation,
         pose_validation: PoseValidation,
+        view_state: ViewState,
+        memory_selection: MemorySelection,
+        trajectory_state: TrajectoryState,
     ) -> tuple[str, str]:
+        if trajectory_state.should_progress and view_state.state != "View Transition":
+            return "INSERT", f"trajectory_{trajectory_state.direction}_progress"
+
+        if memory_selection.mode in {"retrieve_anchor", "reuse_anchor"}:
+            return "KEEP", f"selection_{memory_selection.mode}"
+        if memory_selection.mode == "protect_current":
+            return "KEEP", "selection_protect_current"
+        if memory_selection.mode == "create_anchor" and proposal.state == "INSERT":
+            return "INSERT", "selection_create_anchor"
+
+        if view_state.state == "View Transition":
+            return "KEEP", "view_transition_protect_memory"
+        if view_state.state == "Revisit":
+            return "KEEP", "view_revisit_retrieve_memory"
+        if view_state.state == "Novel View" and proposal.state == "INSERT":
+            return "INSERT", "view_novel_insert_anchor"
+
         if validation.geometry == "reject":
             return "REFRESH", "proposal_validation_geometry_reject"
 
@@ -377,7 +752,23 @@ class PhysMemStateMachine:
         proposal: MemoryProposal,
         validation: EvidenceValidation,
         pose_validation: PoseValidation,
+        view_state: ViewState,
+        memory_selection: MemorySelection,
+        trajectory_state: TrajectoryState,
     ) -> tuple[str, str]:
+        if trajectory_state.should_progress and candidate in {"REPLACE", "EVICT", "KEEP"} and view_state.state != "View Transition":
+            return "INSERT", f"trajectory_{trajectory_state.direction}_blocks_pullback"
+
+        if memory_selection.mode in {"retrieve_anchor", "reuse_anchor", "protect_current"} and candidate in {"REPLACE", "EVICT"}:
+            return "KEEP", f"selection_{memory_selection.mode}_blocks_hard_update"
+        if memory_selection.mode == "create_anchor" and candidate in {"REPLACE", "EVICT"}:
+            return "INSERT", "selection_create_anchor_prefers_insert"
+
+        if view_state.state in {"View Transition", "Revisit"} and candidate in {"REPLACE", "EVICT"}:
+            return "KEEP", f"view_{view_state.state.lower().replace(' ', '_')}_blocks_hard_update"
+        if view_state.state == "Novel View" and candidate in {"REPLACE", "EVICT"}:
+            return "INSERT", "view_novel_prefers_insert"
+
         if pose_validation.validation == "reject_hard_update" and candidate in {"REPLACE", "EVICT"}:
             return "KEEP", f"pose_{pose_validation.event}_blocks_hard_update"
         if pose_validation.validation == "support_insert" and candidate == "EVICT":
@@ -436,8 +827,16 @@ class PhysMemScheduler(MemoryScheduler):
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
         self.pose_memory = PoseMemory()
+        self.key_pose_memory = KeyPoseMemory(stability=self.stability)
         self.pose_validator = PoseValidator(self.stability)
+        self.view_state_classifier = ViewStateClassifier(self.stability)
+        self.memory_selector = PoseAwareMemorySelector(self.stability)
+        self.trajectory_tracker = TrajectoryTracker(self.stability)
         self.state_machine = PhysMemStateMachine(self.policy, self.stability)
+        self.last_view_state = ViewState(state="Not Evaluated", confidence=0.0)
+        self.last_key_anchor: KeyPoseAnchor | None = None
+        self.last_memory_selection = MemorySelection()
+        self.last_trajectory_state = TrajectoryState()
 
     def schedule(
         self,
@@ -459,18 +858,43 @@ class PhysMemScheduler(MemoryScheduler):
             intent_confidence=intent_confidence,
         )
         if self.use_pose_memory:
+            view_state = self.view_state_classifier.classify(pose_state, self.pose_memory)
+            trajectory_state = self.trajectory_tracker.update(pose_state)
+            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state)
             pose_validation = self.pose_validator.validate(
                 pose_state,
                 self.pose_memory,
                 reference_frame_id=memory_buffer.reference_frame_id,
                 middle_frame_id=memory_buffer.middle_frame_id,
+                view_state=view_state,
             )
         else:
+            view_state = ViewState(state="Pose Disabled", confidence=0.0, reasons=["use_pose_memory=false"])
+            trajectory_state = TrajectoryState(motion_state="Pose Disabled", reason="use_pose_memory=false")
+            memory_selection = MemorySelection(mode="pose_disabled", reason="use_pose_memory=false")
             pose_validation = PoseValidation(event="pose_disabled", validation="neutral", reasons=["use_pose_memory=false"])
-        memory_state, transition = self.state_machine.transition(proposal, validation, pose_validation)
+        self.last_view_state = view_state
+        self.last_memory_selection = memory_selection
+        self.last_trajectory_state = trajectory_state
+        memory_state, transition = self.state_machine.transition(
+            proposal,
+            validation,
+            pose_validation,
+            view_state,
+            memory_selection,
+            trajectory_state,
+        )
+        self.last_key_anchor = None
         if self.use_pose_memory:
             self.pose_memory.insert(memory_buffer.current_frame_id, pose_state)
-        keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state)
+            self.last_key_anchor = self.key_pose_memory.maybe_insert(
+                memory_buffer.current_frame_id,
+                pose_state,
+                view_state,
+                pose_validation,
+                memory_state,
+            )
+        keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state, memory_selection)
         score = float(
             unified_memory_score
             if unified_memory_score is not None
@@ -497,11 +921,23 @@ class PhysMemScheduler(MemoryScheduler):
             kv_policy=kv_policy,
         )
 
-    def _strategy_plan(self, memory_buffer: MemoryBuffer, memory_state: str) -> tuple[list[int], list[int], list[int], int, str, int]:
+    def _strategy_plan(
+        self,
+        memory_buffer: MemoryBuffer,
+        memory_state: str,
+        memory_selection: MemorySelection | None = None,
+    ) -> tuple[list[int], list[int], list[int], int, str, int]:
         ids = memory_buffer.snapshot()
         if memory_state == "KEEP":
             delete_ids = ids[3:6]
             keep_ids = ids[:3] + ids[6:]
+            if memory_selection is not None and memory_selection.target_frame_id is not None:
+                target_id = int(memory_selection.target_frame_id)
+                if target_id in ids:
+                    keep_ids = self._protect_target(ids, keep_ids, delete_ids, target_id)
+                    delete_ids = [frame_id for frame_id in ids if frame_id not in set(keep_ids)]
+                elif memory_selection.mode in {"retrieve_anchor", "reuse_anchor"}:
+                    keep_ids = [target_id] + keep_ids
             return keep_ids, delete_ids, [], 3, "preserve_anchor", 1
         if memory_state == "REFRESH":
             delete_ids = [ids[2], ids[5]]
@@ -518,3 +954,14 @@ class PhysMemScheduler(MemoryScheduler):
         delete_ids = ids[:3]
         keep_ids = ids[3:]
         return keep_ids, delete_ids, [], 3, "replace_stale", 0
+
+    @staticmethod
+    def _protect_target(ids: list[int], keep_ids: list[int], delete_ids: list[int], target_frame_id: int) -> list[int]:
+        if target_frame_id in keep_ids:
+            return keep_ids
+        protected = list(keep_ids)
+        if protected:
+            protected.pop(len(protected) // 2)
+        protected.append(target_frame_id)
+        order = {frame_id: index for index, frame_id in enumerate(ids)}
+        return sorted(set(protected), key=lambda frame_id: order.get(frame_id, len(order)))

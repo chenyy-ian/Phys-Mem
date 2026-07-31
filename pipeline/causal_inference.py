@@ -310,12 +310,32 @@ class StableWorldDebugLogger:
                     "pose_pitch",
                     "delta_x",
                     "delta_z",
+                    "local_delta_x",
+                    "local_delta_z",
                     "delta_yaw",
                     "delta_pitch",
                     "movement_magnitude",
                     "rotation_magnitude",
                     "pose_confidence",
                     "pose_delta_position",
+                    "view_state",
+                    "view_confidence",
+                    "view_pose_distance",
+                    "view_yaw_delta",
+                    "nearest_view_frame_id",
+                    "key_anchor_frame_id",
+                    "key_anchor_type",
+                    "key_anchor_reason",
+                    "memory_selection_mode",
+                    "memory_selection_target",
+                    "memory_selection_anchor_type",
+                    "memory_selection_reason",
+                    "trajectory_motion_state",
+                    "trajectory_direction",
+                    "trajectory_frames",
+                    "trajectory_distance",
+                    "trajectory_should_progress",
+                    "trajectory_confidence",
                     "view_intent",
                     "move_intent",
                     "has_view_motion",
@@ -734,10 +754,12 @@ def schedule_stableworld_window_tri_9(
             pose_state=pose_state,
         )
         new_ids = memory_buffer.apply_strategy(decision)
+        view_state_for_log = getattr(scheduler, "last_view_state", None)
     else:
         scheduler = MemoryScheduler(sim_threshold=sim_threshold)
         decision = scheduler.schedule(memory_buffer, similarity_result)
         new_ids = memory_buffer.apply_decision(decision)
+        view_state_for_log = None
     min_sim = similarity_result.similarity
     orb_runtime_ms = float(similarity_result.debug.get("orb_runtime_ms", 0.0))
     lightglue_runtime_ms = float(similarity_result.debug.get("lightglue_runtime_ms", 0.0))
@@ -762,6 +784,43 @@ def schedule_stableworld_window_tri_9(
         pose_delta_position = float(
             np.sqrt(pose_state.delta_x * pose_state.delta_x + pose_state.delta_z * pose_state.delta_z)
         ) if pose_state is not None else 0.0
+        view_extra = {}
+        if view_state_for_log is not None:
+            view_extra = {
+                "view_state": getattr(view_state_for_log, "state", "Unknown"),
+                "view_confidence": float(getattr(view_state_for_log, "confidence", 0.0) or 0.0),
+                "view_pose_distance": float(getattr(view_state_for_log, "pose_distance", 0.0) or 0.0),
+                "view_yaw_delta": float(getattr(view_state_for_log, "yaw_delta", 0.0) or 0.0),
+                "nearest_view_frame_id": getattr(view_state_for_log, "nearest_frame_id", None),
+            }
+        key_anchor_for_log = getattr(scheduler, "last_key_anchor", None) if memory_scheduler_name == "physmem" else None
+        key_anchor_extra = {}
+        if key_anchor_for_log is not None:
+            key_anchor_extra = {
+                "key_anchor_frame_id": int(getattr(key_anchor_for_log, "frame_id", -1)),
+                "key_anchor_type": getattr(key_anchor_for_log, "anchor_type", ""),
+                "key_anchor_reason": getattr(key_anchor_for_log, "reason", ""),
+            }
+        memory_selection_for_log = getattr(scheduler, "last_memory_selection", None) if memory_scheduler_name == "physmem" else None
+        memory_selection_extra = {}
+        if memory_selection_for_log is not None:
+            memory_selection_extra = {
+                "memory_selection_mode": getattr(memory_selection_for_log, "mode", ""),
+                "memory_selection_target": getattr(memory_selection_for_log, "target_frame_id", None),
+                "memory_selection_anchor_type": getattr(memory_selection_for_log, "anchor_type", ""),
+                "memory_selection_reason": getattr(memory_selection_for_log, "reason", ""),
+            }
+        trajectory_for_log = getattr(scheduler, "last_trajectory_state", None) if memory_scheduler_name == "physmem" else None
+        trajectory_extra = {}
+        if trajectory_for_log is not None:
+            trajectory_extra = {
+                "trajectory_motion_state": getattr(trajectory_for_log, "motion_state", ""),
+                "trajectory_direction": getattr(trajectory_for_log, "direction", ""),
+                "trajectory_frames": int(getattr(trajectory_for_log, "consecutive_motion_frames", 0) or 0),
+                "trajectory_distance": float(getattr(trajectory_for_log, "accumulated_distance", 0.0) or 0.0),
+                "trajectory_should_progress": bool(getattr(trajectory_for_log, "should_progress", False)),
+                "trajectory_confidence": float(getattr(trajectory_for_log, "confidence", 0.0) or 0.0),
+            }
         experiment_recorder.record(
             frame_id=int(frame_index),
             current_frame_id=int(current_id),
@@ -795,6 +854,10 @@ def schedule_stableworld_window_tri_9(
             has_move_motion=bool(getattr(action_state, "has_move_motion", False)),
             action_explanation=getattr(action_state, "action_explanation", ""),
             pose_delta_position=pose_delta_position,
+            **view_extra,
+            **key_anchor_extra,
+            **memory_selection_extra,
+            **trajectory_extra,
             **pose_extra,
         )
 
@@ -876,6 +939,39 @@ def schedule_stableworld_window_tri_9(
         if pose_state is not None:
             debug_record.update(pose_state.as_dict())
             debug_record["pose_delta_position"] = float(np.sqrt(pose_state.delta_x * pose_state.delta_x + pose_state.delta_z * pose_state.delta_z))
+        if view_state_for_log is not None:
+            debug_record.update({
+                "view_state": getattr(view_state_for_log, "state", "Unknown"),
+                "view_confidence": float(getattr(view_state_for_log, "confidence", 0.0) or 0.0),
+                "view_pose_distance": float(getattr(view_state_for_log, "pose_distance", 0.0) or 0.0),
+                "view_yaw_delta": float(getattr(view_state_for_log, "yaw_delta", 0.0) or 0.0),
+                "nearest_view_frame_id": getattr(view_state_for_log, "nearest_frame_id", None),
+            })
+        key_anchor_for_log = getattr(scheduler, "last_key_anchor", None) if memory_scheduler_name == "physmem" else None
+        if key_anchor_for_log is not None:
+            debug_record.update({
+                "key_anchor_frame_id": int(getattr(key_anchor_for_log, "frame_id", -1)),
+                "key_anchor_type": getattr(key_anchor_for_log, "anchor_type", ""),
+                "key_anchor_reason": getattr(key_anchor_for_log, "reason", ""),
+            })
+        memory_selection_for_log = getattr(scheduler, "last_memory_selection", None) if memory_scheduler_name == "physmem" else None
+        if memory_selection_for_log is not None:
+            debug_record.update({
+                "memory_selection_mode": getattr(memory_selection_for_log, "mode", ""),
+                "memory_selection_target": getattr(memory_selection_for_log, "target_frame_id", None),
+                "memory_selection_anchor_type": getattr(memory_selection_for_log, "anchor_type", ""),
+                "memory_selection_reason": getattr(memory_selection_for_log, "reason", ""),
+            })
+        trajectory_for_log = getattr(scheduler, "last_trajectory_state", None) if memory_scheduler_name == "physmem" else None
+        if trajectory_for_log is not None:
+            debug_record.update({
+                "trajectory_motion_state": getattr(trajectory_for_log, "motion_state", ""),
+                "trajectory_direction": getattr(trajectory_for_log, "direction", ""),
+                "trajectory_frames": int(getattr(trajectory_for_log, "consecutive_motion_frames", 0) or 0),
+                "trajectory_distance": float(getattr(trajectory_for_log, "accumulated_distance", 0.0) or 0.0),
+                "trajectory_should_progress": bool(getattr(trajectory_for_log, "should_progress", False)),
+                "trajectory_confidence": float(getattr(trajectory_for_log, "confidence", 0.0) or 0.0),
+            })
         debug_record.update({
             "view_intent": getattr(action_state, "view_intent", "None"),
             "move_intent": getattr(action_state, "move_intent", "None"),

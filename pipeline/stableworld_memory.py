@@ -82,10 +82,15 @@ class MemoryBuffer:
         keep_ids = decision.keep_ids or [frame_id for frame_id in self.window_ids if frame_id not in set(decision.delete_ids)]
         keep_set = set(keep_ids)
         delete_set = set(decision.delete_ids)
-        kept = [frame_id for frame_id in self.window_ids if frame_id in keep_set and frame_id not in delete_set]
+        current_kept = [frame_id for frame_id in self.window_ids if frame_id in keep_set and frame_id not in delete_set]
+        external_kept = [frame_id for frame_id in keep_ids if frame_id not in set(self.window_ids) and frame_id not in delete_set]
+        kept = external_kept + current_kept
         new_ids = self.insert(kept, count=decision.insert_count)
         if len(new_ids) > len(self.window_ids):
-            new_ids = new_ids[-len(self.window_ids):]
+            protected = list(dict.fromkeys(external_kept))
+            remaining = [frame_id for frame_id in new_ids if frame_id not in set(protected)]
+            take_count = max(0, len(self.window_ids) - len(protected))
+            new_ids = protected + remaining[-take_count:]
         if len(new_ids) < len(self.window_ids):
             new_ids = self.insert(new_ids, count=len(self.window_ids) - len(new_ids))
         return self.replace(new_ids)
