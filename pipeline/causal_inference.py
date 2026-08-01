@@ -330,6 +330,11 @@ class StableWorldDebugLogger:
                     "memory_selection_target",
                     "memory_selection_anchor_type",
                     "memory_selection_reason",
+                    "source_anchor_frame_id",
+                    "source_anchor_locked",
+                    "protected_anchor_ids",
+                    "loop_closure_detected",
+                    "turn_result",
                     "trajectory_motion_state",
                     "trajectory_direction",
                     "trajectory_frames",
@@ -828,6 +833,11 @@ def schedule_stableworld_window_tri_9(
                 "memory_selection_target": getattr(memory_selection_for_log, "target_frame_id", None),
                 "memory_selection_anchor_type": getattr(memory_selection_for_log, "anchor_type", ""),
                 "memory_selection_reason": getattr(memory_selection_for_log, "reason", ""),
+                "source_anchor_frame_id": getattr(memory_selection_for_log, "source_anchor_frame_id", None),
+                "source_anchor_locked": bool(getattr(memory_selection_for_log, "source_anchor_frame_id", None) is not None),
+                "protected_anchor_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "protected_frame_ids", []) or []),
+                "loop_closure_detected": bool(getattr(memory_selection_for_log, "loop_closure_detected", False)),
+                "turn_result": getattr(memory_selection_for_log, "turn_result", ""),
             }
         trajectory_for_log = getattr(scheduler, "last_trajectory_state", None) if memory_scheduler_name == "physmem" else None
         trajectory_extra = {}
@@ -1019,6 +1029,11 @@ def schedule_stableworld_window_tri_9(
                 "memory_selection_target": getattr(memory_selection_for_log, "target_frame_id", None),
                 "memory_selection_anchor_type": getattr(memory_selection_for_log, "anchor_type", ""),
                 "memory_selection_reason": getattr(memory_selection_for_log, "reason", ""),
+                "source_anchor_frame_id": getattr(memory_selection_for_log, "source_anchor_frame_id", None),
+                "source_anchor_locked": bool(getattr(memory_selection_for_log, "source_anchor_frame_id", None) is not None),
+                "protected_anchor_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "protected_frame_ids", []) or []),
+                "loop_closure_detected": bool(getattr(memory_selection_for_log, "loop_closure_detected", False)),
+                "turn_result": getattr(memory_selection_for_log, "turn_result", ""),
             })
         trajectory_for_log = getattr(scheduler, "last_trajectory_state", None) if memory_scheduler_name == "physmem" else None
         if trajectory_for_log is not None:

@@ -73,6 +73,10 @@ class MemorySelection:
     target_frame_id: int | None = None
     anchor_type: str = ""
     reason: str = ""
+    protected_frame_ids: List[int] = field(default_factory=list)
+    source_anchor_frame_id: int | None = None
+    loop_closure_detected: bool = False
+    turn_result: str = ""
 
 
 @dataclass
@@ -445,6 +449,8 @@ class PoseAwareMemorySelector:
         revisit_gate: RevisitGateResult | None = None,
         action_mode: ActionModeState | None = None,
         turn_state: TurnState | None = None,
+        source_anchor: KeyPoseAnchor | None = None,
+        fallback_source_frame_id: int | None = None,
     ) -> MemorySelection:
         if pose_state is None:
             return MemorySelection(reason="pose_missing")
@@ -452,16 +458,50 @@ class PoseAwareMemorySelector:
         revisit_gate = revisit_gate or RevisitGateResult()
         action_mode = action_mode or ActionModeState()
         turn_state = turn_state or TurnState()
+        source_anchor_id = source_anchor.frame_id if source_anchor is not None else fallback_source_frame_id
+        protected_ids = [int(source_anchor_id)] if source_anchor_id is not None else []
+
         if action_mode.mode == "Locomotion Only":
             return MemorySelection(mode="orb_locomotion", reason=action_mode.reason)
         if turn_state.state == "TurnStart":
-            return MemorySelection(mode="protect_current", reason=action_mode.reason)
+            return MemorySelection(
+                mode="protect_current",
+                reason=action_mode.reason,
+                protected_frame_ids=protected_ids,
+                source_anchor_frame_id=source_anchor_id,
+                turn_result="TurnStart",
+            )
+
+        loop_selection = self._loop_closure_selection(view_state, pose_state, source_anchor, key_pose_memory, turn_state)
+        if loop_selection is not None:
+            loop_selection.protected_frame_ids = list(dict.fromkeys(protected_ids + loop_selection.protected_frame_ids))
+            loop_selection.source_anchor_frame_id = source_anchor_id
+            return loop_selection
+
         if turn_state.state == "TurnInProgress":
-            return MemorySelection(mode="turn_transition", reason=turn_state.reason)
+            return MemorySelection(
+                mode="turn_transition",
+                reason=turn_state.reason,
+                protected_frame_ids=protected_ids,
+                source_anchor_frame_id=source_anchor_id,
+                turn_result="UnstableTransition",
+            )
         if turn_state.state == "PostTurnStabilization":
-            return MemorySelection(mode="stabilize_view", reason=turn_state.reason)
+            return MemorySelection(
+                mode="stabilize_view",
+                reason=turn_state.reason,
+                protected_frame_ids=protected_ids,
+                source_anchor_frame_id=source_anchor_id,
+                turn_result="NovelViewCandidate",
+            )
         if turn_state.state == "StableNewView" and action_mode.mode == "Idle":
-            return MemorySelection(mode="stable_new_view", reason=turn_state.reason)
+            return MemorySelection(
+                mode="stable_new_view",
+                reason=turn_state.reason,
+                protected_frame_ids=protected_ids,
+                source_anchor_frame_id=source_anchor_id,
+                turn_result="StableNewView",
+            )
         if revisit_gate.force_progress and action_mode.mode == "Viewpoint Locomotion":
             return MemorySelection(mode="hybrid_locomotion", reason=revisit_gate.reason)
         if revisit_gate.force_progress:
@@ -476,6 +516,10 @@ class PoseAwareMemorySelector:
                 target_frame_id=nearest_anchor.frame_id,
                 anchor_type=nearest_anchor.anchor_type,
                 reason=f"revisit_nearest_anchor:{nearest_distance:.4f}",
+                protected_frame_ids=protected_ids + [int(nearest_anchor.frame_id)],
+                source_anchor_frame_id=source_anchor_id,
+                loop_closure_detected=True,
+                turn_result="ReturnToKnownView",
             )
 
         if view_state.state == "Known View" and nearest_anchor is not None and revisit_gate.allow_soft_reuse:
@@ -486,15 +530,80 @@ class PoseAwareMemorySelector:
                     target_frame_id=nearest_anchor.frame_id,
                     anchor_type=nearest_anchor.anchor_type,
                     reason=f"known_view_anchor:{nearest_distance:.4f}:{yaw_delta:.4f}",
+                    protected_frame_ids=protected_ids + [int(nearest_anchor.frame_id)],
+                    source_anchor_frame_id=source_anchor_id,
+                    loop_closure_detected=True,
+                    turn_result="ReturnToKnownView",
                 )
 
         if view_state.state == "Novel View":
-            return MemorySelection(mode="create_anchor", reason="novel_view")
+            return MemorySelection(
+                mode="create_anchor",
+                reason="novel_view",
+                protected_frame_ids=protected_ids,
+                source_anchor_frame_id=source_anchor_id,
+                turn_result="NovelViewArrival",
+            )
 
         if view_state.state == "View Transition":
-            return MemorySelection(mode="protect_current", reason="view_transition")
+            return MemorySelection(
+                mode="protect_current",
+                reason="view_transition",
+                protected_frame_ids=protected_ids,
+                source_anchor_frame_id=source_anchor_id,
+                turn_result="UnstableTransition",
+            )
 
-        return MemorySelection(reason=f"view_state={view_state.state}")
+        return MemorySelection(
+            reason=f"view_state={view_state.state}",
+            protected_frame_ids=protected_ids,
+            source_anchor_frame_id=source_anchor_id,
+        )
+
+    def _loop_closure_selection(
+        self,
+        view_state: ViewState,
+        pose_state: PoseState,
+        source_anchor: KeyPoseAnchor | None,
+        key_pose_memory: KeyPoseMemory,
+        turn_state: TurnState,
+    ) -> MemorySelection | None:
+        if turn_state.state not in {"TurnInProgress", "PostTurnStabilization", "StableNewView"}:
+            return None
+
+        candidates: list[KeyPoseAnchor] = []
+        if source_anchor is not None:
+            candidates.append(source_anchor)
+        nearest_id, nearest_anchor, nearest_distance = key_pose_memory.nearest(pose_state)
+        if nearest_anchor is not None and all(anchor.frame_id != nearest_anchor.frame_id for anchor in candidates):
+            candidates.append(nearest_anchor)
+
+        best_anchor = None
+        best_distance = float("inf")
+        best_yaw = float("inf")
+        for anchor in candidates:
+            distance = PoseMemory.distance(pose_state, anchor.pose)
+            yaw_delta = PoseMemory.yaw_delta(pose_state, anchor.pose)
+            if distance <= self.stability.known_view_distance_threshold and yaw_delta <= self.stability.known_view_yaw_threshold:
+                score = distance + yaw_delta
+                if score < best_distance + best_yaw:
+                    best_anchor = anchor
+                    best_distance = distance
+                    best_yaw = yaw_delta
+
+        if best_anchor is None:
+            return None
+
+        mode = "hard_retrieve_anchor" if view_state.state == "Revisit" or turn_state.state != "TurnInProgress" else "soft_reuse_anchor"
+        return MemorySelection(
+            mode=mode,
+            target_frame_id=best_anchor.frame_id,
+            anchor_type=best_anchor.anchor_type,
+            reason=f"loop_closure:{turn_state.state}:{best_distance:.4f}:{best_yaw:.4f}",
+            protected_frame_ids=[int(best_anchor.frame_id)],
+            loop_closure_detected=True,
+            turn_result="ReturnToKnownView",
+        )
 
 
 class RevisitGate:
@@ -885,6 +994,10 @@ class PhysMemStateMachine:
         action_mode: ActionModeState,
         turn_state: TurnState,
     ) -> tuple[str, str]:
+        if memory_selection.loop_closure_detected:
+            return "KEEP", f"selection_loop_closure_{memory_selection.mode}"
+        if memory_selection.mode in {"hard_retrieve_anchor", "soft_reuse_anchor"}:
+            return "KEEP", f"selection_{memory_selection.mode}"
         if action_mode.mode == "Locomotion Only":
             return proposal.state, f"action_mode_locomotion_orb_{proposal.state.lower()}"
         if turn_state.state == "TurnStart":
@@ -902,8 +1015,6 @@ class PhysMemStateMachine:
 
         if memory_selection.mode in {"progress_anchor", "hybrid_locomotion"}:
             return "INSERT", f"selection_{memory_selection.mode}"
-        if memory_selection.mode in {"hard_retrieve_anchor", "soft_reuse_anchor"}:
-            return "KEEP", f"selection_{memory_selection.mode}"
         if memory_selection.mode == "protect_current":
             return "KEEP", "selection_protect_current"
         if memory_selection.mode == "create_anchor" and proposal.state == "INSERT":
@@ -1053,6 +1164,7 @@ class PhysMemScheduler(MemoryScheduler):
         self.last_revisit_gate = RevisitGateResult(reason="not_evaluated")
         self.last_action_mode = ActionModeState(mode="Not Evaluated")
         self.last_turn_state = TurnState(state="Not Evaluated")
+        self.active_source_anchor: KeyPoseAnchor | None = None
 
     def schedule(
         self,
@@ -1079,7 +1191,17 @@ class PhysMemScheduler(MemoryScheduler):
             action_mode = self.action_mode_classifier.classify(pose_state, intent_state)
             turn_state = self.turn_state_machine.update(action_mode, pose_state)
             revisit_gate = self.revisit_gate.evaluate(view_state, trajectory_state, pose_state, action_mode)
-            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state, revisit_gate, action_mode, turn_state)
+            self._update_source_anchor(memory_buffer, pose_state, view_state, action_mode, turn_state)
+            memory_selection = self.memory_selector.select(
+                view_state,
+                self.key_pose_memory,
+                pose_state,
+                revisit_gate,
+                action_mode,
+                turn_state,
+                source_anchor=self.active_source_anchor,
+                fallback_source_frame_id=memory_buffer.reference_frame_id,
+            )
             pose_validation = self.pose_validator.validate(
                 pose_state,
                 self.pose_memory,
@@ -1151,6 +1273,34 @@ class PhysMemScheduler(MemoryScheduler):
             kv_policy=kv_policy,
         )
 
+    def _update_source_anchor(
+        self,
+        memory_buffer: MemoryBuffer,
+        pose_state: PoseState | None,
+        view_state: ViewState,
+        action_mode: ActionModeState,
+        turn_state: TurnState,
+    ) -> None:
+        if pose_state is None:
+            return
+        if turn_state.state == "TurnStart":
+            anchor_frame_id = int(memory_buffer.reference_frame_id)
+            anchor_pose = self.pose_memory.get(anchor_frame_id) or pose_state
+            self.active_source_anchor = KeyPoseAnchor(
+                frame_id=anchor_frame_id,
+                pose=anchor_pose,
+                anchor_type="source_view_anchor",
+                view_state=view_state.state,
+                confidence=float(view_state.confidence),
+                reason=f"turn_start:{action_mode.mode}",
+            )
+            self.key_pose_memory.anchors[anchor_frame_id] = self.active_source_anchor
+            if anchor_frame_id not in self.key_pose_memory.order:
+                self.key_pose_memory.order.append(anchor_frame_id)
+            return
+        if turn_state.state in {"Idle", "StableNewView"} and action_mode.mode in {"Idle", "Locomotion Only"}:
+            self.active_source_anchor = None
+
     def _strategy_plan(
         self,
         memory_buffer: MemoryBuffer,
@@ -1168,6 +1318,9 @@ class PhysMemScheduler(MemoryScheduler):
                     delete_ids = [frame_id for frame_id in ids if frame_id not in set(keep_ids)]
                 elif memory_selection.mode == "hard_retrieve_anchor":
                     keep_ids = [target_id] + keep_ids
+            if memory_selection is not None:
+                keep_ids = self._protect_frames(ids, keep_ids, memory_selection.protected_frame_ids)
+                delete_ids = [frame_id for frame_id in ids if frame_id not in set(keep_ids)]
             return keep_ids, delete_ids, [], 3, "preserve_anchor", 1
         if memory_state == "REFRESH":
             delete_ids = [ids[2], ids[5]]
@@ -1175,16 +1328,13 @@ class PhysMemScheduler(MemoryScheduler):
             return keep_ids, delete_ids, delete_ids, 2, "refresh_uncertain", 1
         if memory_state == "INSERT":
             if memory_selection is not None and memory_selection.mode == "turn_transition":
-                delete_ids = ids[:2]
-                keep_ids = ids[2:]
+                delete_ids, keep_ids = self._delete_oldest_unprotected(ids, memory_selection.protected_frame_ids, 2)
                 return keep_ids, delete_ids, [], 2, "append_transition", 0
             if memory_selection is not None and memory_selection.mode == "stabilize_view":
-                delete_ids = ids[:3]
-                keep_ids = ids[3:]
+                delete_ids, keep_ids = self._delete_oldest_unprotected(ids, memory_selection.protected_frame_ids, 3)
                 return keep_ids, delete_ids, [], 3, "stabilize_view_anchor", 0
             if memory_selection is not None and memory_selection.mode in {"orb_locomotion", "progress_anchor", "hybrid_locomotion"}:
-                delete_ids = ids[:3]
-                keep_ids = ids[3:]
+                delete_ids, keep_ids = self._delete_oldest_unprotected(ids, memory_selection.protected_frame_ids, 3)
                 return keep_ids, delete_ids, [], 3, "append_locomotion", 0
             delete_ids = [ids[1], ids[3]]
             keep_ids = [frame_id for frame_id in ids if frame_id not in set(delete_ids)]
@@ -1207,3 +1357,34 @@ class PhysMemScheduler(MemoryScheduler):
         protected.append(target_frame_id)
         order = {frame_id: index for index, frame_id in enumerate(ids)}
         return sorted(set(protected), key=lambda frame_id: order.get(frame_id, len(order)))
+
+    @staticmethod
+    def _protect_frames(ids: list[int], keep_ids: list[int], protected_frame_ids: list[int]) -> list[int]:
+        protected_ids = [int(frame_id) for frame_id in protected_frame_ids if frame_id is not None]
+        if not protected_ids:
+            return keep_ids
+        order = {frame_id: index for index, frame_id in enumerate(ids)}
+        merged = list(dict.fromkeys(list(keep_ids) + protected_ids))
+        in_window = [frame_id for frame_id in merged if frame_id in order]
+        external = [frame_id for frame_id in merged if frame_id not in order]
+        return external + sorted(in_window, key=lambda frame_id: order.get(frame_id, len(order)))
+
+    @staticmethod
+    def _delete_oldest_unprotected(ids: list[int], protected_frame_ids: list[int], count: int) -> tuple[list[int], list[int]]:
+        protected = {int(frame_id) for frame_id in protected_frame_ids if frame_id is not None}
+        delete_ids: list[int] = []
+        for frame_id in ids:
+            if frame_id in protected:
+                continue
+            delete_ids.append(frame_id)
+            if len(delete_ids) >= count:
+                break
+        if len(delete_ids) < count:
+            for frame_id in ids:
+                if frame_id not in delete_ids:
+                    delete_ids.append(frame_id)
+                    if len(delete_ids) >= count:
+                        break
+        delete_set = set(delete_ids)
+        keep_ids = [frame_id for frame_id in ids if frame_id not in delete_set]
+        return delete_ids, keep_ids
