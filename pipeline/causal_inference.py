@@ -348,6 +348,13 @@ class StableWorldDebugLogger:
                     "action_mode_confidence",
                     "action_mode_reason",
                     "scheduler_path",
+                    "turn_state",
+                    "turn_confidence",
+                    "turn_duration",
+                    "turn_direction",
+                    "turn_reason",
+                    "window_layout_type",
+                    "window_reason",
                     "view_intent",
                     "move_intent",
                     "has_view_motion",
@@ -856,6 +863,19 @@ def schedule_stableworld_window_tri_9(
                 "action_mode_reason": getattr(action_mode_for_log, "reason", ""),
                 "scheduler_path": f"{getattr(action_mode_for_log, 'mode', 'Unknown')}->{memory_selection_extra.get('memory_selection_mode', '')}",
             }
+        turn_state_for_log = getattr(scheduler, "last_turn_state", None) if memory_scheduler_name == "physmem" else None
+        turn_extra = {}
+        if turn_state_for_log is not None:
+            selection_mode = memory_selection_extra.get("memory_selection_mode", "")
+            turn_extra = {
+                "turn_state": getattr(turn_state_for_log, "state", "Unknown"),
+                "turn_confidence": float(getattr(turn_state_for_log, "confidence", 0.0) or 0.0),
+                "turn_duration": int(getattr(turn_state_for_log, "duration", 0) or 0),
+                "turn_direction": getattr(turn_state_for_log, "direction", ""),
+                "turn_reason": getattr(turn_state_for_log, "reason", ""),
+                "window_layout_type": selection_mode or "stableworld",
+                "window_reason": f"{getattr(turn_state_for_log, 'state', 'Unknown')}:{selection_mode}",
+            }
         experiment_recorder.record(
             frame_id=int(frame_index),
             current_frame_id=int(current_id),
@@ -895,6 +915,7 @@ def schedule_stableworld_window_tri_9(
             **trajectory_extra,
             **revisit_gate_extra,
             **action_mode_extra,
+            **turn_extra,
             **pose_extra,
         )
 
@@ -1029,6 +1050,18 @@ def schedule_stableworld_window_tri_9(
                 "action_mode_confidence": float(getattr(action_mode_for_log, "confidence", 0.0) or 0.0),
                 "action_mode_reason": getattr(action_mode_for_log, "reason", ""),
                 "scheduler_path": f"{getattr(action_mode_for_log, 'mode', 'Unknown')}->{debug_record.get('memory_selection_mode', '')}",
+            })
+        turn_state_for_log = getattr(scheduler, "last_turn_state", None) if memory_scheduler_name == "physmem" else None
+        if turn_state_for_log is not None:
+            selection_mode = debug_record.get("memory_selection_mode", "")
+            debug_record.update({
+                "turn_state": getattr(turn_state_for_log, "state", "Unknown"),
+                "turn_confidence": float(getattr(turn_state_for_log, "confidence", 0.0) or 0.0),
+                "turn_duration": int(getattr(turn_state_for_log, "duration", 0) or 0),
+                "turn_direction": getattr(turn_state_for_log, "direction", ""),
+                "turn_reason": getattr(turn_state_for_log, "reason", ""),
+                "window_layout_type": selection_mode or "stableworld",
+                "window_reason": f"{getattr(turn_state_for_log, 'state', 'Unknown')}:{selection_mode}",
             })
         debug_record.update({
             "view_intent": getattr(action_state, "view_intent", "None"),

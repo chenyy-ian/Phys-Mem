@@ -104,6 +104,15 @@ class ActionModeState:
 
 
 @dataclass
+class TurnState:
+    state: str = "Idle"
+    confidence: float = 0.0
+    duration: int = 0
+    direction: str = "none"
+    reason: str = ""
+
+
+@dataclass
 class MemoryCandidate:
     frame_id: int | None = None
     candidate_type: str = "none"
@@ -192,6 +201,9 @@ class StrategyStabilityConfig:
     trajectory_progress_min_frames: int = 2
     trajectory_progress_distance: float = 0.25
     trajectory_reset_rotation_threshold: float = 0.35
+    turn_start_frames: int = 1
+    turn_stabilization_frames: int = 2
+    turn_rotation_threshold: float = 0.02
 
 
 class KeyPoseMemory:
@@ -245,15 +257,19 @@ class KeyPoseMemory:
         memory_state: str,
         revisit_gate: RevisitGateResult | None = None,
         action_mode: ActionModeState | None = None,
+        turn_state: TurnState | None = None,
     ) -> KeyPoseAnchor | None:
         if pose is None:
             return None
         revisit_gate = revisit_gate or RevisitGateResult()
         action_mode = action_mode or ActionModeState()
+        turn_state = turn_state or TurnState()
         if not self.anchors:
             return self.insert(frame_id, pose, "initial_anchor", view_state, "first_pose")
         if action_mode.mode == "Locomotion Only":
             return None
+        if turn_state.state == "PostTurnStabilization" and memory_state == "INSERT":
+            return self.insert(frame_id, pose, "stabilized_view_anchor", view_state, "post_turn_stabilization")
         if revisit_gate.force_progress and memory_state == "INSERT":
             return self.insert(frame_id, pose, "forward_anchor", view_state, revisit_gate.reason)
         if view_state.state == "Novel View" and memory_state == "INSERT":
@@ -369,6 +385,54 @@ class ActionModeClassifier:
         return ActionModeState(mode="Idle", confidence=1.0, reason=f"idle:{intent_state}")
 
 
+class TurnStateMachine:
+    def __init__(self, stability: StrategyStabilityConfig):
+        self.stability = stability
+        self.turn_duration = 0
+        self.stabilization_remaining = 0
+        self.last_direction = "none"
+
+    def update(self, action_mode: ActionModeState, pose_state: PoseState | None) -> TurnState:
+        rotation = float(getattr(pose_state, "rotation_magnitude", 0.0) or 0.0) if pose_state is not None else 0.0
+        delta_yaw = float(getattr(pose_state, "delta_yaw", 0.0) or 0.0) if pose_state is not None else 0.0
+        direction = "right" if delta_yaw > 0 else "left" if delta_yaw < 0 else self.last_direction
+        is_turning = action_mode.mode in {"View Rotation Only", "Viewpoint Locomotion"} and rotation >= self.stability.turn_rotation_threshold
+
+        if is_turning:
+            self.turn_duration += 1
+            self.stabilization_remaining = self.stability.turn_stabilization_frames
+            self.last_direction = direction
+            if self.turn_duration <= self.stability.turn_start_frames:
+                return TurnState(
+                    state="TurnStart",
+                    confidence=float(np.clip(rotation / max(self.stability.turn_rotation_threshold * 4.0, 1e-6), 0.0, 1.0)),
+                    duration=int(self.turn_duration),
+                    direction=direction,
+                    reason=f"rotation={rotation:.4f}",
+                )
+            return TurnState(
+                state="TurnInProgress",
+                confidence=float(np.clip(rotation / max(self.stability.turn_rotation_threshold * 4.0, 1e-6), 0.0, 1.0)),
+                duration=int(self.turn_duration),
+                direction=direction,
+                reason=f"rotation={rotation:.4f}",
+            )
+
+        if self.stabilization_remaining > 0:
+            self.stabilization_remaining -= 1
+            self.turn_duration = 0
+            return TurnState(
+                state="PostTurnStabilization",
+                confidence=float((self.stabilization_remaining + 1) / max(self.stability.turn_stabilization_frames, 1)),
+                duration=int(self.stability.turn_stabilization_frames - self.stabilization_remaining),
+                direction=self.last_direction,
+                reason="mouse_stopped_after_turn",
+            )
+
+        self.turn_duration = 0
+        return TurnState(state="StableNewView" if self.last_direction != "none" else "Idle", confidence=1.0, direction=self.last_direction, reason="stable")
+
+
 class PoseAwareMemorySelector:
     def __init__(self, stability: StrategyStabilityConfig):
         self.stability = stability
@@ -380,16 +444,24 @@ class PoseAwareMemorySelector:
         pose_state: PoseState | None,
         revisit_gate: RevisitGateResult | None = None,
         action_mode: ActionModeState | None = None,
+        turn_state: TurnState | None = None,
     ) -> MemorySelection:
         if pose_state is None:
             return MemorySelection(reason="pose_missing")
 
         revisit_gate = revisit_gate or RevisitGateResult()
         action_mode = action_mode or ActionModeState()
+        turn_state = turn_state or TurnState()
         if action_mode.mode == "Locomotion Only":
             return MemorySelection(mode="orb_locomotion", reason=action_mode.reason)
-        if action_mode.mode == "View Rotation Only":
+        if turn_state.state == "TurnStart":
             return MemorySelection(mode="protect_current", reason=action_mode.reason)
+        if turn_state.state == "TurnInProgress":
+            return MemorySelection(mode="turn_transition", reason=turn_state.reason)
+        if turn_state.state == "PostTurnStabilization":
+            return MemorySelection(mode="stabilize_view", reason=turn_state.reason)
+        if turn_state.state == "StableNewView" and action_mode.mode == "Idle":
+            return MemorySelection(mode="stable_new_view", reason=turn_state.reason)
         if revisit_gate.force_progress and action_mode.mode == "Viewpoint Locomotion":
             return MemorySelection(mode="hybrid_locomotion", reason=revisit_gate.reason)
         if revisit_gate.force_progress:
@@ -785,20 +857,22 @@ class PhysMemStateMachine:
         memory_selection: MemorySelection | None = None,
         trajectory_state: TrajectoryState | None = None,
         action_mode: ActionModeState | None = None,
+        turn_state: TurnState | None = None,
     ) -> tuple[str, str]:
         pose_validation = pose_validation or PoseValidation()
         view_state = view_state or ViewState()
         memory_selection = memory_selection or MemorySelection()
         trajectory_state = trajectory_state or TrajectoryState()
         action_mode = action_mode or ActionModeState()
-        candidate, reason = self._candidate_transition(proposal, validation, pose_validation, view_state, memory_selection, trajectory_state, action_mode)
-        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation, pose_validation, view_state, memory_selection, trajectory_state, action_mode)
+        turn_state = turn_state or TurnState()
+        candidate, reason = self._candidate_transition(proposal, validation, pose_validation, view_state, memory_selection, trajectory_state, action_mode, turn_state)
+        constrained, constraint_reason = self._apply_transition_constraints(candidate, proposal, validation, pose_validation, view_state, memory_selection, trajectory_state, action_mode, turn_state)
         self._update_cooldown(constrained)
         previous = self.last_state
         self.last_state = constrained
         if constraint_reason:
-            return constrained, f"{reason}|{constraint_reason}|mode={action_mode.mode}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
-        return constrained, f"{reason}|mode={action_mode.mode}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
+            return constrained, f"{reason}|{constraint_reason}|mode={action_mode.mode}|turn={turn_state.state}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
+        return constrained, f"{reason}|mode={action_mode.mode}|turn={turn_state.state}|view={view_state.state}|selection={memory_selection.mode}|trajectory={trajectory_state.motion_state}:{trajectory_state.direction}|prev={previous}"
 
     def _candidate_transition(
         self,
@@ -809,11 +883,18 @@ class PhysMemStateMachine:
         memory_selection: MemorySelection,
         trajectory_state: TrajectoryState,
         action_mode: ActionModeState,
+        turn_state: TurnState,
     ) -> tuple[str, str]:
         if action_mode.mode == "Locomotion Only":
             return proposal.state, f"action_mode_locomotion_orb_{proposal.state.lower()}"
-        if action_mode.mode == "View Rotation Only":
+        if turn_state.state == "TurnStart":
             return "KEEP", "action_mode_view_rotation_protect"
+        if turn_state.state == "TurnInProgress":
+            return "INSERT", "turn_in_progress_soft_insert"
+        if turn_state.state == "PostTurnStabilization":
+            return "INSERT", "post_turn_stabilize_view"
+        if turn_state.state == "StableNewView" and action_mode.mode == "Idle":
+            return proposal.state, f"stable_new_view_orb_{proposal.state.lower()}"
         if action_mode.mode == "Viewpoint Locomotion" and trajectory_state.should_progress and proposal.state == "INSERT":
             return "INSERT", f"action_mode_hybrid_{trajectory_state.direction}_insert"
         if trajectory_state.should_progress and view_state.state != "View Transition" and action_mode.mode != "Locomotion Only":
@@ -873,7 +954,10 @@ class PhysMemStateMachine:
         memory_selection: MemorySelection,
         trajectory_state: TrajectoryState,
         action_mode: ActionModeState,
+        turn_state: TurnState,
     ) -> tuple[str, str]:
+        if turn_state.state in {"TurnInProgress", "PostTurnStabilization"} and candidate in {"REPLACE", "EVICT"}:
+            return "INSERT", f"turn_{turn_state.state.lower()}_blocks_hard_update"
         if action_mode.mode == "Locomotion Only":
             if candidate in {"REPLACE", "EVICT", "REFRESH"}:
                 return proposal.state, f"locomotion_orb_blocks_{candidate.lower()}"
@@ -960,6 +1044,7 @@ class PhysMemScheduler(MemoryScheduler):
         self.revisit_gate = RevisitGate(self.stability)
         self.trajectory_tracker = TrajectoryTracker(self.stability)
         self.action_mode_classifier = ActionModeClassifier()
+        self.turn_state_machine = TurnStateMachine(self.stability)
         self.state_machine = PhysMemStateMachine(self.policy, self.stability)
         self.last_view_state = ViewState(state="Not Evaluated", confidence=0.0)
         self.last_key_anchor: KeyPoseAnchor | None = None
@@ -967,6 +1052,7 @@ class PhysMemScheduler(MemoryScheduler):
         self.last_trajectory_state = TrajectoryState()
         self.last_revisit_gate = RevisitGateResult(reason="not_evaluated")
         self.last_action_mode = ActionModeState(mode="Not Evaluated")
+        self.last_turn_state = TurnState(state="Not Evaluated")
 
     def schedule(
         self,
@@ -991,8 +1077,9 @@ class PhysMemScheduler(MemoryScheduler):
             view_state = self.view_state_classifier.classify(pose_state, self.pose_memory)
             trajectory_state = self.trajectory_tracker.update(pose_state)
             action_mode = self.action_mode_classifier.classify(pose_state, intent_state)
+            turn_state = self.turn_state_machine.update(action_mode, pose_state)
             revisit_gate = self.revisit_gate.evaluate(view_state, trajectory_state, pose_state, action_mode)
-            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state, revisit_gate, action_mode)
+            memory_selection = self.memory_selector.select(view_state, self.key_pose_memory, pose_state, revisit_gate, action_mode, turn_state)
             pose_validation = self.pose_validator.validate(
                 pose_state,
                 self.pose_memory,
@@ -1005,6 +1092,7 @@ class PhysMemScheduler(MemoryScheduler):
             trajectory_state = TrajectoryState(motion_state="Pose Disabled", reason="use_pose_memory=false")
             revisit_gate = RevisitGateResult(reason="use_pose_memory=false")
             action_mode = ActionModeState(mode="Pose Disabled", reason="use_pose_memory=false")
+            turn_state = TurnState(state="Pose Disabled", reason="use_pose_memory=false")
             memory_selection = MemorySelection(mode="pose_disabled", reason="use_pose_memory=false")
             pose_validation = PoseValidation(event="pose_disabled", validation="neutral", reasons=["use_pose_memory=false"])
         self.last_view_state = view_state
@@ -1012,6 +1100,7 @@ class PhysMemScheduler(MemoryScheduler):
         self.last_trajectory_state = trajectory_state
         self.last_revisit_gate = revisit_gate
         self.last_action_mode = action_mode
+        self.last_turn_state = turn_state
         memory_state, transition = self.state_machine.transition(
             proposal,
             validation,
@@ -1020,6 +1109,7 @@ class PhysMemScheduler(MemoryScheduler):
             memory_selection,
             trajectory_state,
             action_mode,
+            turn_state,
         )
         self.last_key_anchor = None
         if self.use_pose_memory:
@@ -1032,6 +1122,7 @@ class PhysMemScheduler(MemoryScheduler):
                 memory_state,
                 revisit_gate,
                 action_mode,
+                turn_state,
             )
         keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state, memory_selection)
         score = float(
@@ -1083,6 +1174,14 @@ class PhysMemScheduler(MemoryScheduler):
             keep_ids = [frame_id for frame_id in ids if frame_id not in set(delete_ids)]
             return keep_ids, delete_ids, delete_ids, 2, "refresh_uncertain", 1
         if memory_state == "INSERT":
+            if memory_selection is not None and memory_selection.mode == "turn_transition":
+                delete_ids = ids[:2]
+                keep_ids = ids[2:]
+                return keep_ids, delete_ids, [], 2, "append_transition", 0
+            if memory_selection is not None and memory_selection.mode == "stabilize_view":
+                delete_ids = ids[:3]
+                keep_ids = ids[3:]
+                return keep_ids, delete_ids, [], 3, "stabilize_view_anchor", 0
             if memory_selection is not None and memory_selection.mode in {"orb_locomotion", "progress_anchor", "hybrid_locomotion"}:
                 delete_ids = ids[:3]
                 keep_ids = ids[3:]
