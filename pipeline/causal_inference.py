@@ -335,6 +335,20 @@ class StableWorldDebugLogger:
                     "protected_anchor_ids",
                     "loop_closure_detected",
                     "turn_result",
+                    "policy_mode",
+                    "allow_memory_query",
+                    "allow_hard_retrieve",
+                    "allow_soft_reuse",
+                    "query_result",
+                    "candidate_count",
+                    "best_candidate_frame_id",
+                    "best_candidate_score",
+                    "best_candidate_pose_distance",
+                    "best_candidate_yaw_delta",
+                    "best_candidate_frame_gap",
+                    "target_window_ids",
+                    "retrieved_window_ids",
+                    "window_rank_reason",
                     "trajectory_motion_state",
                     "trajectory_direction",
                     "trajectory_frames",
@@ -657,6 +671,7 @@ def decide_and_update_window_ids_tri_9(
     evidence_mode: str = "single",
     evidence_collector: EvidenceCollector | None = None,
     use_pose_memory: bool = True,
+    use_pose_path_memory: bool = True,
     num_frame_per_block: int = 1,
     mode: str = "universal",
 ) -> tuple[int, list, float, str]:
@@ -679,6 +694,7 @@ def decide_and_update_window_ids_tri_9(
         evidence_mode=evidence_mode,
         evidence_collector=evidence_collector,
         use_pose_memory=use_pose_memory,
+        use_pose_path_memory=use_pose_path_memory,
         num_frame_per_block=num_frame_per_block,
         mode=mode,
     )
@@ -704,6 +720,7 @@ def schedule_stableworld_window_tri_9(
     evidence_collector: EvidenceCollector | None = None,
     physmem_scheduler: PhysMemScheduler | None = None,
     use_pose_memory: bool = True,
+    use_pose_path_memory: bool = True,
     num_frame_per_block: int = 1,
     mode: str = "universal",
 ) -> tuple[int, list, float, str]:
@@ -763,6 +780,7 @@ def schedule_stableworld_window_tri_9(
             sim_threshold=sim_threshold,
             policy=MemoryPolicy(stable_score=sim_threshold),
             use_pose_memory=use_pose_memory,
+            use_pose_path_memory=use_pose_path_memory,
         )
         geometry_evidence = evidence_bundle.evidences.get("geometry")
         geometry_confidence_for_policy = float(geometry_evidence.confidence if geometry_evidence is not None else 1.0)
@@ -838,6 +856,20 @@ def schedule_stableworld_window_tri_9(
                 "protected_anchor_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "protected_frame_ids", []) or []),
                 "loop_closure_detected": bool(getattr(memory_selection_for_log, "loop_closure_detected", False)),
                 "turn_result": getattr(memory_selection_for_log, "turn_result", ""),
+                "policy_mode": getattr(memory_selection_for_log, "policy_mode", ""),
+                "allow_memory_query": bool(getattr(memory_selection_for_log, "allow_memory_query", False)),
+                "allow_hard_retrieve": bool(getattr(memory_selection_for_log, "allow_hard_retrieve", False)),
+                "allow_soft_reuse": bool(getattr(memory_selection_for_log, "allow_soft_reuse", False)),
+                "query_result": getattr(memory_selection_for_log, "query_result", ""),
+                "candidate_count": int(getattr(memory_selection_for_log, "candidate_count", 0) or 0),
+                "best_candidate_frame_id": getattr(memory_selection_for_log, "best_candidate_frame_id", None),
+                "best_candidate_score": float(getattr(memory_selection_for_log, "best_candidate_score", 0.0) or 0.0),
+                "best_candidate_pose_distance": float(getattr(memory_selection_for_log, "best_candidate_pose_distance", 0.0) or 0.0),
+                "best_candidate_yaw_delta": float(getattr(memory_selection_for_log, "best_candidate_yaw_delta", 0.0) or 0.0),
+                "best_candidate_frame_gap": int(getattr(memory_selection_for_log, "best_candidate_frame_gap", 0) or 0),
+                "target_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
+                "retrieved_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
+                "window_rank_reason": getattr(memory_selection_for_log, "rank_reason", ""),
             }
         trajectory_for_log = getattr(scheduler, "last_trajectory_state", None) if memory_scheduler_name == "physmem" else None
         trajectory_extra = {}
@@ -1034,6 +1066,20 @@ def schedule_stableworld_window_tri_9(
                 "protected_anchor_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "protected_frame_ids", []) or []),
                 "loop_closure_detected": bool(getattr(memory_selection_for_log, "loop_closure_detected", False)),
                 "turn_result": getattr(memory_selection_for_log, "turn_result", ""),
+                "policy_mode": getattr(memory_selection_for_log, "policy_mode", ""),
+                "allow_memory_query": bool(getattr(memory_selection_for_log, "allow_memory_query", False)),
+                "allow_hard_retrieve": bool(getattr(memory_selection_for_log, "allow_hard_retrieve", False)),
+                "allow_soft_reuse": bool(getattr(memory_selection_for_log, "allow_soft_reuse", False)),
+                "query_result": getattr(memory_selection_for_log, "query_result", ""),
+                "candidate_count": int(getattr(memory_selection_for_log, "candidate_count", 0) or 0),
+                "best_candidate_frame_id": getattr(memory_selection_for_log, "best_candidate_frame_id", None),
+                "best_candidate_score": float(getattr(memory_selection_for_log, "best_candidate_score", 0.0) or 0.0),
+                "best_candidate_pose_distance": float(getattr(memory_selection_for_log, "best_candidate_pose_distance", 0.0) or 0.0),
+                "best_candidate_yaw_delta": float(getattr(memory_selection_for_log, "best_candidate_yaw_delta", 0.0) or 0.0),
+                "best_candidate_frame_gap": int(getattr(memory_selection_for_log, "best_candidate_frame_gap", 0) or 0),
+                "target_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
+                "retrieved_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
+                "window_rank_reason": getattr(memory_selection_for_log, "rank_reason", ""),
             })
         trajectory_for_log = getattr(scheduler, "last_trajectory_state", None) if memory_scheduler_name == "physmem" else None
         if trajectory_for_log is not None:
@@ -1085,6 +1131,7 @@ def schedule_stableworld_window_tri_9(
             "has_move_motion": bool(getattr(action_state, "has_move_motion", False)),
             "action_explanation": getattr(action_state, "action_explanation", ""),
             "use_pose_memory": bool(use_pose_memory),
+            "use_pose_path_memory": bool(use_pose_path_memory),
         })
         debug_logger.log_decision(debug_record)
         debug_logger.log_physmem(debug_record)
@@ -1155,6 +1202,7 @@ class CausalInferencePipeline(torch.nn.Module):
         memory_scheduler_name: str = "stableworld",
         evidence_mode: str = "single",
         use_pose_memory: bool = True,
+        use_pose_path_memory: bool = True,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -1205,6 +1253,7 @@ class CausalInferencePipeline(torch.nn.Module):
             sim_threshold=Threshold,
             policy=MemoryPolicy(stable_score=Threshold),
             use_pose_memory=use_pose_memory,
+            use_pose_path_memory=use_pose_path_memory,
         ) if memory_scheduler_name == "physmem" else None
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
@@ -1230,6 +1279,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     "fusion_weight_intent": fusion_weight_intent,
                     "memory_scheduler": memory_scheduler_name,
                     "use_pose_memory": use_pose_memory,
+                    "use_pose_path_memory": use_pose_path_memory,
                     "evidence_mode": evidence_mode,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
@@ -1358,6 +1408,7 @@ class CausalInferencePipeline(torch.nn.Module):
                     evidence_collector=evidence_collector,
                     physmem_scheduler=physmem_scheduler,
                     use_pose_memory=use_pose_memory,
+                    use_pose_path_memory=use_pose_path_memory,
                     num_frame_per_block=self.num_frame_per_block,
                     mode=mode,
                 )
