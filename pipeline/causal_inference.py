@@ -380,6 +380,7 @@ class StableWorldDebugLogger:
                     "has_move_motion",
                     "action_explanation",
                     "use_pose_memory",
+                    "use_pose_path_memory",
                 ],
             )
             writer.writeheader()
