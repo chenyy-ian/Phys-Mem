@@ -1128,17 +1128,22 @@ class RevisitGate:
         if pose_state is None:
             return RevisitGateResult(reason="pose_missing")
         action_mode = action_mode or ActionModeState()
-        if action_mode.mode == "Locomotion Only":
-            return RevisitGateResult(reason="locomotion_only_orb_dominant")
         if view_state.state == "View Transition":
             return RevisitGateResult(protect_current=True, reason="view_transition")
+        movement = float(getattr(pose_state, "movement_magnitude", 0.0) or 0.0)
+        # M1 (v4.6): a stable revisit (pose match + low motion) outranks the
+        # locomotion / view-rotation protection, so "turned back to a seen
+        # pose" (e.g. slow final rotation with movement ~0) can query memory.
+        if view_state.state == "Revisit" and movement <= self.stability.forward_progress_threshold:
+            return RevisitGateResult(allow_retrieve=True, reason="stable_revisit")
+        if action_mode.mode == "Locomotion Only":
+            return RevisitGateResult(reason="locomotion_only_orb_dominant")
         if action_mode.mode == "View Rotation Only":
             return RevisitGateResult(protect_current=True, reason="view_rotation_only")
         if trajectory_state.should_progress and action_mode.mode == "Viewpoint Locomotion":
             return RevisitGateResult(force_progress=True, reason=f"hybrid_{trajectory_state.direction}_progress")
         if trajectory_state.should_progress and action_mode.mode not in {"Locomotion Only"}:
             return RevisitGateResult(force_progress=True, reason=f"trajectory_{trajectory_state.direction}_progress")
-        movement = float(getattr(pose_state, "movement_magnitude", 0.0) or 0.0)
         if view_state.state == "Revisit":
             if movement <= self.stability.forward_progress_threshold:
                 return RevisitGateResult(allow_retrieve=True, reason="stable_revisit")
