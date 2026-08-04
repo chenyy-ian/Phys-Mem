@@ -180,6 +180,10 @@ class HistoricalWindowCandidate:
     novel_penalty: float
     score: float
     reason: str = ""
+    fidelity_score: float = 0.0
+    stability_score: float = 0.0
+    tier0_score: float = 0.0
+    completeness: float = 0.0
 
 
 class PoseMemory:
@@ -228,7 +232,8 @@ class PoseMemory:
     def yaw_delta(a: PoseState | None, b: PoseState | None) -> float:
         if a is None or b is None:
             return float("inf")
-        return abs(float(a.yaw) - float(b.yaw))
+        raw = abs(float(a.yaw) - float(b.yaw)) % (2.0 * np.pi)
+        return float(min(raw, 2.0 * np.pi - raw))
 
 
 @dataclass
@@ -262,6 +267,32 @@ class StrategyStabilityConfig:
     turn_start_frames: int = 1
     turn_stabilization_frames: int = 2
     turn_rotation_threshold: float = 0.02
+
+
+@dataclass
+class HierarchicalRankingConfig:
+    """v4.6 (M2) hierarchical pose-priority historical-window retrieval settings.
+
+    - Stage 1 Yaw Gate: hard filter on |yaw delta| (view direction must match).
+    - Stage 2 Position Ranking: keep the top-k nearest candidates.
+    - Stage 3 Fidelity Ranking: frame age / Tier0 / generation quality.
+    - Stage 4 Window Stability: completeness + historical state stability.
+    """
+    yaw_gate_threshold: float = 0.35
+    position_top_k: int = 8
+    max_age: int = 150
+    age_weight: float = 0.5
+    tier0_weight: float = 0.3
+    quality_weight: float = 0.2
+    w_view: float = 0.25
+    w_pose: float = 0.20
+    w_fidelity: float = 0.30
+    w_stability: float = 0.25
+    transition_penalty: float = 0.10
+    novel_penalty: float = 0.10
+    pose_scale: float = 0.75
+    min_score: float = 0.35
+    tier0_enabled: bool = True
 
 
 class KeyPoseMemory:
@@ -366,6 +397,16 @@ class MemoryPolicySelector:
         trajectory_state: TrajectoryState,
         revisit_gate: RevisitGateResult,
     ) -> SchedulingPolicy:
+        # M1 (v4.6): a stable revisit outranks locomotion / turn protection,
+        # so "turned back to a previously seen pose" can actually query memory.
+        if view_state.state == "Revisit" and revisit_gate.allow_retrieve:
+            return SchedulingPolicy(
+                policy_mode="RevisitPolicy",
+                allow_memory_query=True,
+                allow_hard_retrieve=True,
+                allow_soft_reuse=True,
+                reason=f"stable_revisit_priority:{revisit_gate.reason or 'revisit'}",
+            )
         if action_mode.mode == "Locomotion Only":
             return SchedulingPolicy(
                 policy_mode="LocomotionPolicy",
@@ -482,9 +523,13 @@ class PosePathMemory:
         current_frame_id: int,
         stability: StrategyStabilityConfig,
         max_candidates: int = 16,
+        initial_window_ids: list[int] | None = None,
+        ranking_config: HierarchicalRankingConfig | None = None,
     ) -> list[HistoricalWindowCandidate]:
         if pose is None:
             return []
+        ranking = ranking_config or HierarchicalRankingConfig()
+        initial_set = {int(fid) for fid in (initial_window_ids or [])}
         candidates: list[HistoricalWindowCandidate] = []
         for entry in self.entries.values():
             frame_gap = int(current_frame_id) - int(entry.frame_id)
@@ -492,26 +537,40 @@ class PosePathMemory:
                 continue
             pose_distance = PoseMemory.distance(pose, entry.pose)
             yaw_delta = PoseMemory.yaw_delta(pose, entry.pose)
-            if pose_distance > stability.known_view_distance_threshold or yaw_delta > stability.known_view_yaw_threshold:
+            # M2 Stage 1: Yaw Gate (hard constraint) -- view direction must match.
+            if yaw_delta > ranking.yaw_gate_threshold:
                 continue
             transition_penalty = 1.0 if entry.view_state == "View Transition" or entry.turn_state == "TurnInProgress" else 0.0
             novel_penalty = 0.5 if entry.view_state == "Novel View" and entry.turn_state != "StableNewView" else 0.0
-            pose_score = 1.0 - min(pose_distance / max(stability.known_view_distance_threshold, 1e-6), 1.0)
-            yaw_score = 1.0 - min(yaw_delta / max(stability.known_view_yaw_threshold, 1e-6), 1.0)
             quality = float(np.clip(entry.stability_score, 0.0, 1.0))
-            stability_score = 1.0 if entry.memory_state in {"KEEP", "INSERT"} else 0.5
-            score = (
-                0.30 * pose_score
-                + 0.35 * yaw_score
-                + 0.20 * quality
-                + 0.15 * stability_score
-                - 0.20 * transition_penalty
-                - 0.20 * novel_penalty
+            window_ids = list(entry.window_ids)
+            completeness = (
+                sum(1 for fid in window_ids if int(fid) < int(current_frame_id)) / len(window_ids)
+                if window_ids else 0.0
             )
+            tier0_score = (
+                float(1.0)
+                if ranking.tier0_enabled and initial_set and any(int(fid) in initial_set for fid in window_ids[:3])
+                else 0.0
+            )
+            age_score = min(frame_gap / max(float(ranking.max_age), 1.0), 1.0)
+            # M2 Stage 3 (pre-computed here): Fidelity = age + Tier0 + generation quality.
+            fidelity_score = float(
+                np.clip(
+                    ranking.age_weight * age_score
+                    + ranking.tier0_weight * tier0_score
+                    + ranking.quality_weight * quality,
+                    0.0,
+                    1.0,
+                )
+            )
+            # M2 Stage 4 (pre-computed here): Window Stability = completeness + state stability.
+            state_stability = 1.0 if entry.memory_state in {"KEEP", "INSERT"} else 0.5
+            stability_score = float(np.clip(0.5 * completeness + 0.5 * state_stability, 0.0, 1.0))
             candidates.append(
                 HistoricalWindowCandidate(
                     anchor_frame_id=entry.frame_id,
-                    window_ids=list(entry.window_ids),
+                    window_ids=window_ids,
                     pose_distance=float(pose_distance),
                     yaw_delta=float(yaw_delta),
                     frame_gap=int(frame_gap),
@@ -520,24 +579,60 @@ class PosePathMemory:
                     window_quality=quality,
                     transition_penalty=float(transition_penalty),
                     novel_penalty=float(novel_penalty),
-                    score=float(score),
+                    score=float(pose_distance),
                     reason=f"pose={pose_distance:.4f}:yaw={yaw_delta:.4f}:gap={frame_gap}:view={entry.view_state}",
+                    fidelity_score=float(fidelity_score),
+                    stability_score=float(stability_score),
+                    tier0_score=float(tier0_score),
+                    completeness=float(completeness),
                 )
             )
-        candidates.sort(key=lambda item: item.score, reverse=True)
-        return candidates[:max_candidates]
+        # M2 Stage 2: Position Ranking -> keep the top-k nearest candidates.
+        candidates.sort(key=lambda item: item.pose_distance)
+        top_k = max(1, min(int(ranking.position_top_k), max_candidates))
+        return candidates[:top_k]
 
 
 class HistoricalWindowRanker:
-    min_score: float = 0.45
+    def __init__(self, min_score: float | None = None):
+        # None -> fall back to HierarchicalRankingConfig.min_score.
+        self.min_score = min_score
 
-    def best(self, candidates: list[HistoricalWindowCandidate]) -> HistoricalWindowCandidate | None:
+    def best(
+        self,
+        candidates: list[HistoricalWindowCandidate],
+        ranking_config: HierarchicalRankingConfig | None = None,
+        initial_window_ids: list[int] | None = None,
+    ) -> HistoricalWindowCandidate | None:
         if not candidates:
             return None
-        candidate = candidates[0]
-        if candidate.score < self.min_score:
+        ranking = ranking_config or HierarchicalRankingConfig()
+        threshold = ranking.min_score if self.min_score is None else float(self.min_score)
+        yaw_gate = ranking.yaw_gate_threshold
+        pose_scale = ranking.pose_scale
+        for candidate in candidates:
+            s_view = float(np.clip(1.0 - candidate.yaw_delta / max(yaw_gate, 1e-6), 0.0, 1.0))
+            s_pose = float(np.clip(1.0 - candidate.pose_distance / max(pose_scale, 1e-6), 0.0, 1.0))
+            final_score = (
+                ranking.w_view * s_view
+                + ranking.w_pose * s_pose
+                + ranking.w_fidelity * candidate.fidelity_score
+                + ranking.w_stability * candidate.stability_score
+                - ranking.transition_penalty * candidate.transition_penalty
+                - ranking.novel_penalty * candidate.novel_penalty
+            )
+            candidate.score = float(np.clip(final_score, 0.0, 1.0))
+            candidate.reason = (
+                f"yaw={candidate.yaw_delta:.4f}:pose={candidate.pose_distance:.4f}:"
+                f"gap={candidate.frame_gap}:fid={candidate.fidelity_score:.3f}:"
+                f"stab={candidate.stability_score:.3f}:tier0={candidate.tier0_score:.1f}:"
+                f"score={candidate.score:.3f}"
+            )
+        candidates.sort(key=lambda item: item.score, reverse=True)
+        best_candidate = candidates[0]
+        if best_candidate.score < threshold:
             return None
-        return candidate
+        return best_candidate
 
 
 class TrajectoryTracker:
@@ -693,6 +788,8 @@ class PoseAwareMemorySelector:
         historical_ranker: HistoricalWindowRanker | None = None,
         current_frame_id: int | None = None,
         use_pose_path_memory: bool = True,
+        ranking_config: HierarchicalRankingConfig | None = None,
+        initial_window_ids: list[int] | None = None,
     ) -> MemorySelection:
         if pose_state is None:
             return MemorySelection(reason="pose_missing")
@@ -710,6 +807,34 @@ class PoseAwareMemorySelector:
             "allow_soft_reuse": scheduling_policy.allow_soft_reuse,
         }
 
+        # M1 (v4.6): stable revisit must be able to query memory even when the
+        # frame also looks like locomotion / turn-in-progress.
+        stable_revisit = (
+            view_state.state == "Revisit"
+            and revisit_gate.allow_retrieve
+            and scheduling_policy.allow_memory_query
+        )
+        if stable_revisit:
+            query = self._query_memory_selection(
+                view_state,
+                pose_state,
+                pose_path_memory,
+                historical_ranker,
+                current_frame_id,
+                scheduling_policy,
+                protected_ids,
+                source_anchor_id,
+                source_anchor,
+                key_pose_memory,
+                turn_state,
+                use_pose_path_memory,
+                ranking_config=ranking_config,
+                initial_window_ids=initial_window_ids,
+            )
+            if query is not None:
+                return query
+            # no usable historical window -> fall through to ordinary mode logic
+
         if action_mode.mode == "Locomotion Only":
             return MemorySelection(mode="orb_locomotion", reason=action_mode.reason, **policy_kwargs)
         if turn_state.state == "TurnStart":
@@ -723,7 +848,7 @@ class PoseAwareMemorySelector:
             )
 
         if scheduling_policy.allow_memory_query:
-            window_selection = self._pose_path_window_selection(
+            query = self._query_memory_selection(
                 view_state,
                 pose_state,
                 pose_path_memory,
@@ -732,14 +857,15 @@ class PoseAwareMemorySelector:
                 scheduling_policy,
                 protected_ids,
                 source_anchor_id,
-            ) if use_pose_path_memory else None
-            if window_selection is not None:
-                return window_selection
-            loop_selection = self._loop_closure_selection(view_state, pose_state, source_anchor, key_pose_memory, turn_state, scheduling_policy)
-            if loop_selection is not None:
-                loop_selection.protected_frame_ids = list(dict.fromkeys(protected_ids + loop_selection.protected_frame_ids))
-                loop_selection.source_anchor_frame_id = source_anchor_id
-                return loop_selection
+                source_anchor,
+                key_pose_memory,
+                turn_state,
+                use_pose_path_memory,
+                ranking_config=ranking_config,
+                initial_window_ids=initial_window_ids,
+            )
+            if query is not None:
+                return query
 
         if turn_state.state == "TurnInProgress":
             return MemorySelection(
@@ -831,6 +957,52 @@ class PoseAwareMemorySelector:
             **policy_kwargs,
         )
 
+    def _query_memory_selection(
+        self,
+        view_state: ViewState,
+        pose_state: PoseState,
+        pose_path_memory: PosePathMemory | None,
+        historical_ranker: HistoricalWindowRanker | None,
+        current_frame_id: int | None,
+        scheduling_policy: SchedulingPolicy,
+        protected_ids: list[int],
+        source_anchor_id: int | None,
+        source_anchor: KeyPoseAnchor | None,
+        key_pose_memory: KeyPoseMemory,
+        turn_state: TurnState,
+        use_pose_path_memory: bool,
+        ranking_config: HierarchicalRankingConfig | None = None,
+        initial_window_ids: list[int] | None = None,
+    ) -> MemorySelection | None:
+        if use_pose_path_memory:
+            window_selection = self._pose_path_window_selection(
+                view_state,
+                pose_state,
+                pose_path_memory,
+                historical_ranker,
+                current_frame_id,
+                scheduling_policy,
+                protected_ids,
+                source_anchor_id,
+                ranking_config=ranking_config,
+                initial_window_ids=initial_window_ids,
+            )
+            if window_selection is not None:
+                return window_selection
+        loop_selection = self._loop_closure_selection(
+            view_state,
+            pose_state,
+            source_anchor,
+            key_pose_memory,
+            turn_state,
+            scheduling_policy,
+        )
+        if loop_selection is not None:
+            loop_selection.protected_frame_ids = list(dict.fromkeys(protected_ids + loop_selection.protected_frame_ids))
+            loop_selection.source_anchor_frame_id = source_anchor_id
+            return loop_selection
+        return None
+
     def _pose_path_window_selection(
         self,
         view_state: ViewState,
@@ -841,11 +1013,23 @@ class PoseAwareMemorySelector:
         scheduling_policy: SchedulingPolicy,
         protected_ids: list[int],
         source_anchor_id: int | None,
+        ranking_config: HierarchicalRankingConfig | None = None,
+        initial_window_ids: list[int] | None = None,
     ) -> MemorySelection | None:
         if pose_path_memory is None or historical_ranker is None or current_frame_id is None:
             return None
-        candidates = pose_path_memory.candidates(pose_state, current_frame_id, self.stability)
-        best = historical_ranker.best(candidates)
+        candidates = pose_path_memory.candidates(
+            pose_state,
+            current_frame_id,
+            self.stability,
+            initial_window_ids=initial_window_ids,
+            ranking_config=ranking_config,
+        )
+        best = historical_ranker.best(
+            candidates,
+            ranking_config=ranking_config,
+            initial_window_ids=initial_window_ids,
+        )
         if best is None:
             return None
         mode = "retrieve_window" if scheduling_policy.allow_hard_retrieve or view_state.state == "Revisit" else "soft_reuse_window"
@@ -1465,19 +1649,22 @@ class PhysMemScheduler(MemoryScheduler):
         stability: StrategyStabilityConfig | None = None,
         use_pose_memory: bool = True,
         use_pose_path_memory: bool = True,
+        ranking_config: HierarchicalRankingConfig | None = None,
     ):
         super().__init__(sim_threshold=sim_threshold)
         self.policy = policy or MemoryPolicy(stable_score=sim_threshold)
         self.stability = stability or StrategyStabilityConfig()
         self.use_pose_memory = bool(use_pose_memory)
         self.use_pose_path_memory = bool(use_pose_path_memory)
+        self.ranking_config = ranking_config or HierarchicalRankingConfig()
+        self.initial_window_ids: list[int] | None = None
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
         self.pose_memory = PoseMemory()
         self.key_pose_memory = KeyPoseMemory(stability=self.stability)
         self.pose_path_memory = PosePathMemory()
         self.policy_selector = MemoryPolicySelector()
-        self.historical_ranker = HistoricalWindowRanker()
+        self.historical_ranker = HistoricalWindowRanker(min_score=self.ranking_config.min_score)
         self.pose_validator = PoseValidator(self.stability)
         self.view_state_classifier = ViewStateClassifier(self.stability)
         self.memory_selector = PoseAwareMemorySelector(self.stability)
@@ -1507,6 +1694,8 @@ class PhysMemScheduler(MemoryScheduler):
         intent_confidence: float = 0.0,
         pose_state: PoseState | None = None,
     ) -> MemoryDecision:
+        if self.initial_window_ids is None:
+            self.initial_window_ids = list(memory_buffer.snapshot())
         proposal = self.proposal_engine.propose(similarity, fusion_result)
         validation = self.validator.validate(
             proposal,
@@ -1537,6 +1726,8 @@ class PhysMemScheduler(MemoryScheduler):
                 historical_ranker=self.historical_ranker,
                 current_frame_id=memory_buffer.current_frame_id,
                 use_pose_path_memory=self.use_pose_path_memory,
+                ranking_config=self.ranking_config,
+                initial_window_ids=self.initial_window_ids,
             )
             pose_validation = self.pose_validator.validate(
                 pose_state,

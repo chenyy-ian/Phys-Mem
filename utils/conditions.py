@@ -285,6 +285,74 @@ def Bench_actions_physmem_stress(num_frames):
         "mouse_condition": mouse_condition,
     }
 
+def Bench_actions_physmem_revisit(num_frames):
+    """
+    Universal-mode action preset for v4.6 revisit-retrieval validation.
+
+    Contains explicit 'rotate away -> rotate back -> stand still' and
+    'move away -> return -> stand still' segments, so ViewStateClassifier can
+    detect stable Revisit (movement <= forward_progress_threshold) and the
+    hierarchical pose-path retrieval can actually fire. Repeats until the
+    requested sequence length is filled.
+    """
+    assert num_frames % 4 == 1
+    keyboard_condition = torch.zeros((num_frames, 4))
+    mouse_condition = torch.zeros((num_frames, 2))
+
+    KEYBOARD = {
+        "idle": [0, 0, 0, 0],
+        "forward": [1, 0, 0, 0],
+        "back": [0, 1, 0, 0],
+        "left": [0, 0, 1, 0],
+        "right": [0, 0, 0, 1],
+        "forward_left": [1, 0, 1, 0],
+    }
+    MOUSE = {
+        "none": [0.0, 0.0],
+        "turn_left": [0.0, -0.12],
+        "turn_right": [0.0, 0.12],
+        "hard_left": [0.0, -0.18],
+        "hard_right": [0.0, 0.18],
+    }
+    blocks = [
+        # Warm-up: short forward movement.
+        ("forward", "none", 12),
+        ("forward_left", "none", 12),
+        # Segment A: rotate away (idle), then rotate back to the original yaw (idle).
+        ("idle", "hard_left", 24),
+        ("idle", "hard_right", 24),
+        # Stand still at the returned pose -> stable Revisit #1.
+        ("idle", "none", 8),
+        # Segment B: move away, then return to the origin position.
+        ("forward", "none", 24),
+        ("back", "none", 24),
+        # Stand still at the origin -> stable Revisit #2.
+        ("idle", "none", 8),
+        # Segment C: viewpoint locomotion, then rotate back to yaw ~0.
+        ("forward_left", "turn_left", 12),
+        ("forward", "none", 12),
+        ("idle", "turn_right", 12),
+        ("idle", "none", 8),
+    ]
+
+    cur = 0
+    first = True
+    while cur < num_frames:
+        for keyboard_name, mouse_name, duration in blocks:
+            if cur >= num_frames:
+                break
+            block_len = 1 if first else duration
+            block_len = min(block_len, num_frames - cur)
+            keyboard_condition[cur:cur + block_len] = torch.tensor(KEYBOARD[keyboard_name], dtype=keyboard_condition.dtype)
+            mouse_condition[cur:cur + block_len] = torch.tensor(MOUSE[mouse_name], dtype=mouse_condition.dtype)
+            cur += block_len
+            first = False
+
+    return {
+        "keyboard_condition": keyboard_condition,
+        "mouse_condition": mouse_condition,
+    }
+
 def build_bench_actions(mode, num_frames, action_preset="default"):
     if action_preset == "default":
         if mode == "universal":
@@ -301,6 +369,10 @@ def build_bench_actions(mode, num_frames, action_preset="default"):
         if mode != "universal":
             raise ValueError("physmem_stress action preset is only available for universal mode")
         return Bench_actions_physmem_stress(num_frames)
+    if action_preset == "physmem_revisit":
+        if mode != "universal":
+            raise ValueError("physmem_revisit action preset is only available for universal mode")
+        return Bench_actions_physmem_revisit(num_frames)
     raise ValueError(f"Unknown action_preset: {action_preset}")
 
 def Bench_actions_gta_drive(num_frames, num_samples_per_action=4):
