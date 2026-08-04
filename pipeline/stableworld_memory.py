@@ -93,7 +93,21 @@ class MemoryBuffer:
             new_ids = protected + remaining[-take_count:]
         if len(new_ids) < len(self.window_ids):
             new_ids = self.insert(new_ids, count=len(self.window_ids) - len(new_ids))
+        # v4.6.1 invariant: the active window must stay a valid temporal sequence
+        # (strictly increasing, no duplicates, same length). If any path violates
+        # this, fall back to the standard sliding window.
+        if not self._is_valid_window(new_ids, len(self.window_ids)):
+            recent = list(dict.fromkeys(frame_id for frame_id in self.window_ids if frame_id < self.last_id))[-6:]
+            new_ids = recent + [self.last_id + 1, self.last_id + 2, self.last_id + 3]
         return self.replace(new_ids)
+
+    @staticmethod
+    def _is_valid_window(ids: list[int], expected_len: int) -> bool:
+        if len(ids) != expected_len:
+            return False
+        if len(set(ids)) != len(ids):
+            return False
+        return all(b > a for a, b in zip(ids, ids[1:]))
 
 
 class MemoryScheduler:

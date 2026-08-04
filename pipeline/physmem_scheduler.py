@@ -89,6 +89,10 @@ class MemorySelection:
     best_candidate_pose_distance: float = 0.0
     best_candidate_yaw_delta: float = 0.0
     best_candidate_frame_gap: int = 0
+    best_candidate_first_visit: float = 0.0
+    best_candidate_visit_age: float = 0.0
+    best_candidate_cluster_id: int = -1
+    best_candidate_first_visit_frame_id: int | None = None
     rank_reason: str = ""
 
 
@@ -182,7 +186,10 @@ class HistoricalWindowCandidate:
     reason: str = ""
     fidelity_score: float = 0.0
     stability_score: float = 0.0
-    tier0_score: float = 0.0
+    first_visit_score: float = 0.0
+    visit_age_score: float = 0.0
+    cluster_id: int = -1
+    first_visit_frame_id: int | None = None
     completeness: float = 0.0
 
 
@@ -275,15 +282,16 @@ class HierarchicalRankingConfig:
 
     - Stage 1 Yaw Gate: hard filter on |yaw delta| (view direction must match).
     - Stage 2 Position Ranking: keep the top-k nearest candidates.
-    - Stage 3 Fidelity Ranking: frame age / Tier0 / generation quality.
+    - Stage 3 Fidelity Ranking (v4.6.2): FirstVisit + RelativeAge + Stability + Quality.
     - Stage 4 Window Stability: completeness + historical state stability.
     """
     yaw_gate_threshold: float = 0.35
     position_top_k: int = 8
-    max_age: int = 150
-    age_weight: float = 0.5
-    tier0_weight: float = 0.3
-    quality_weight: float = 0.2
+    first_visit_weight: float = 0.4
+    visit_age_weight: float = 0.3
+    stability_weight: float = 0.2
+    quality_weight: float = 0.1
+    first_visit_decay: float = 0.2
     w_view: float = 0.25
     w_pose: float = 0.20
     w_fidelity: float = 0.30
@@ -292,7 +300,105 @@ class HierarchicalRankingConfig:
     novel_penalty: float = 0.10
     pose_scale: float = 0.75
     min_score: float = 0.35
-    tier0_enabled: bool = True
+    reference_window_ttl: int = 3
+
+
+@dataclass
+class PoseCluster:
+    cluster_id: int
+    center_pose: PoseState | None = None
+    frame_ids: List[int] = field(default_factory=list)
+    first_visit_frame_id: int | None = None
+    last_visit_frame_id: int | None = None
+    visit_order: Dict[int, int] = field(default_factory=dict)
+
+
+class PoseClusterMemory:
+    """v4.6.2: group pose-path entries into 'same view region' clusters so that
+    retrieval can prefer the FIRST observation of a region (world fidelity)
+    instead of the most recent one."""
+
+    def __init__(
+        self,
+        stability: StrategyStabilityConfig | None = None,
+        max_clusters: int = 64,
+        first_visit_decay: float = 0.2,
+    ):
+        self.stability = stability or StrategyStabilityConfig()
+        self.max_clusters = int(max_clusters)
+        self.first_visit_decay = float(first_visit_decay)
+        self.clusters: Dict[int, PoseCluster] = {}
+        self.order: List[int] = []
+        self._next_id = 0
+
+    def _matching_cluster(self, pose: PoseState | None) -> PoseCluster | None:
+        if pose is None:
+            return None
+        for cluster_id in self.order:
+            cluster = self.clusters[cluster_id]
+            if cluster.center_pose is None:
+                continue
+            if (
+                PoseMemory.distance(pose, cluster.center_pose) <= self.stability.revisit_distance_threshold
+                and PoseMemory.yaw_delta(pose, cluster.center_pose) <= self.stability.revisit_yaw_threshold
+            ):
+                return cluster
+        return None
+
+    def add(self, frame_id: int, pose: PoseState | None) -> PoseCluster | None:
+        if pose is None:
+            return None
+        frame_id = int(frame_id)
+        cluster = self._matching_cluster(pose)
+        if cluster is None:
+            if len(self.order) >= self.max_clusters:
+                old = self.order.pop(0)
+                self.clusters.pop(old, None)
+            cluster = PoseCluster(cluster_id=self._next_id, center_pose=pose)
+            self._next_id += 1
+            self.clusters[cluster.cluster_id] = cluster
+            self.order.append(cluster.cluster_id)
+        if frame_id not in cluster.visit_order:
+            cluster.visit_order[frame_id] = len(cluster.visit_order)
+        if frame_id not in cluster.frame_ids:
+            cluster.frame_ids.append(frame_id)
+        if cluster.first_visit_frame_id is None or frame_id < cluster.first_visit_frame_id:
+            cluster.first_visit_frame_id = frame_id
+        if cluster.last_visit_frame_id is None or frame_id > cluster.last_visit_frame_id:
+            cluster.last_visit_frame_id = frame_id
+        return cluster
+
+    def cluster_for(self, frame_id: int) -> PoseCluster | None:
+        for cluster in self.clusters.values():
+            if frame_id in cluster.visit_order:
+                return cluster
+        return None
+
+    def cluster_id_for(self, frame_id: int) -> int:
+        cluster = self.cluster_for(frame_id)
+        return cluster.cluster_id if cluster is not None else -1
+
+    def first_visit_score(self, frame_id: int) -> float:
+        cluster = self.cluster_for(frame_id)
+        if cluster is None or cluster.first_visit_frame_id is None:
+            return 0.0
+        if frame_id == cluster.first_visit_frame_id:
+            return 1.0
+        return float(self.first_visit_decay)
+
+    def visit_age_score(self, frame_id: int) -> float:
+        cluster = self.cluster_for(frame_id)
+        if cluster is None or frame_id not in cluster.visit_order:
+            return 0.0
+        count = len(cluster.visit_order)
+        if count <= 1:
+            return 1.0
+        rank = cluster.visit_order[frame_id]
+        return float(np.clip(1.0 - rank / (count - 1), 0.0, 1.0))
+
+    def first_visit_frame_id_for(self, frame_id: int) -> int | None:
+        cluster = self.cluster_for(frame_id)
+        return cluster.first_visit_frame_id if cluster is not None else None
 
 
 class KeyPoseMemory:
@@ -525,11 +631,11 @@ class PosePathMemory:
         max_candidates: int = 16,
         initial_window_ids: list[int] | None = None,
         ranking_config: HierarchicalRankingConfig | None = None,
+        pose_cluster_memory: PoseClusterMemory | None = None,
     ) -> list[HistoricalWindowCandidate]:
         if pose is None:
             return []
         ranking = ranking_config or HierarchicalRankingConfig()
-        initial_set = {int(fid) for fid in (initial_window_ids or [])}
         candidates: list[HistoricalWindowCandidate] = []
         for entry in self.entries.values():
             frame_gap = int(current_frame_id) - int(entry.frame_id)
@@ -548,25 +654,34 @@ class PosePathMemory:
                 sum(1 for fid in window_ids if int(fid) < int(current_frame_id)) / len(window_ids)
                 if window_ids else 0.0
             )
-            tier0_score = (
-                float(1.0)
-                if ranking.tier0_enabled and initial_set and any(int(fid) in initial_set for fid in window_ids[:3])
-                else 0.0
+            state_stability = 1.0 if entry.memory_state in {"KEEP", "INSERT"} else 0.5
+            # M2 Stage 4 (pre-computed here): Window Stability = completeness + state stability.
+            stability_score = float(np.clip(0.5 * completeness + 0.5 * state_stability, 0.0, 1.0))
+            # M2 Stage 3 (v4.6.2): World Fidelity = FirstVisit + RelativeAge + Stability + Quality.
+            first_visit_score = (
+                pose_cluster_memory.first_visit_score(entry.frame_id) if pose_cluster_memory is not None else 0.0
             )
-            age_score = min(frame_gap / max(float(ranking.max_age), 1.0), 1.0)
-            # M2 Stage 3 (pre-computed here): Fidelity = age + Tier0 + generation quality.
+            visit_age_score = (
+                pose_cluster_memory.visit_age_score(entry.frame_id) if pose_cluster_memory is not None else 0.0
+            )
+            cluster_id = (
+                pose_cluster_memory.cluster_id_for(entry.frame_id) if pose_cluster_memory is not None else -1
+            )
+            first_visit_frame_id = (
+                pose_cluster_memory.first_visit_frame_id_for(entry.frame_id)
+                if pose_cluster_memory is not None
+                else None
+            )
             fidelity_score = float(
                 np.clip(
-                    ranking.age_weight * age_score
-                    + ranking.tier0_weight * tier0_score
+                    ranking.first_visit_weight * first_visit_score
+                    + ranking.visit_age_weight * visit_age_score
+                    + ranking.stability_weight * state_stability
                     + ranking.quality_weight * quality,
                     0.0,
                     1.0,
                 )
             )
-            # M2 Stage 4 (pre-computed here): Window Stability = completeness + state stability.
-            state_stability = 1.0 if entry.memory_state in {"KEEP", "INSERT"} else 0.5
-            stability_score = float(np.clip(0.5 * completeness + 0.5 * state_stability, 0.0, 1.0))
             candidates.append(
                 HistoricalWindowCandidate(
                     anchor_frame_id=entry.frame_id,
@@ -583,7 +698,10 @@ class PosePathMemory:
                     reason=f"pose={pose_distance:.4f}:yaw={yaw_delta:.4f}:gap={frame_gap}:view={entry.view_state}",
                     fidelity_score=float(fidelity_score),
                     stability_score=float(stability_score),
-                    tier0_score=float(tier0_score),
+                    first_visit_score=float(first_visit_score),
+                    visit_age_score=float(visit_age_score),
+                    cluster_id=int(cluster_id),
+                    first_visit_frame_id=first_visit_frame_id,
                     completeness=float(completeness),
                 )
             )
@@ -625,7 +743,8 @@ class HistoricalWindowRanker:
             candidate.reason = (
                 f"yaw={candidate.yaw_delta:.4f}:pose={candidate.pose_distance:.4f}:"
                 f"gap={candidate.frame_gap}:fid={candidate.fidelity_score:.3f}:"
-                f"stab={candidate.stability_score:.3f}:tier0={candidate.tier0_score:.1f}:"
+                f"first={candidate.first_visit_score:.2f}:age={candidate.visit_age_score:.2f}:"
+                f"stab={candidate.stability_score:.3f}:cluster={candidate.cluster_id}:"
                 f"score={candidate.score:.3f}"
             )
         candidates.sort(key=lambda item: item.score, reverse=True)
@@ -790,6 +909,7 @@ class PoseAwareMemorySelector:
         use_pose_path_memory: bool = True,
         ranking_config: HierarchicalRankingConfig | None = None,
         initial_window_ids: list[int] | None = None,
+        pose_cluster_memory: PoseClusterMemory | None = None,
     ) -> MemorySelection:
         if pose_state is None:
             return MemorySelection(reason="pose_missing")
@@ -830,6 +950,7 @@ class PoseAwareMemorySelector:
                 use_pose_path_memory,
                 ranking_config=ranking_config,
                 initial_window_ids=initial_window_ids,
+                pose_cluster_memory=pose_cluster_memory,
             )
             if query is not None:
                 return query
@@ -863,6 +984,7 @@ class PoseAwareMemorySelector:
                 use_pose_path_memory,
                 ranking_config=ranking_config,
                 initial_window_ids=initial_window_ids,
+                pose_cluster_memory=pose_cluster_memory,
             )
             if query is not None:
                 return query
@@ -973,6 +1095,7 @@ class PoseAwareMemorySelector:
         use_pose_path_memory: bool,
         ranking_config: HierarchicalRankingConfig | None = None,
         initial_window_ids: list[int] | None = None,
+        pose_cluster_memory: PoseClusterMemory | None = None,
     ) -> MemorySelection | None:
         if use_pose_path_memory:
             window_selection = self._pose_path_window_selection(
@@ -986,6 +1109,7 @@ class PoseAwareMemorySelector:
                 source_anchor_id,
                 ranking_config=ranking_config,
                 initial_window_ids=initial_window_ids,
+                pose_cluster_memory=pose_cluster_memory,
             )
             if window_selection is not None:
                 return window_selection
@@ -1015,6 +1139,7 @@ class PoseAwareMemorySelector:
         source_anchor_id: int | None,
         ranking_config: HierarchicalRankingConfig | None = None,
         initial_window_ids: list[int] | None = None,
+        pose_cluster_memory: PoseClusterMemory | None = None,
     ) -> MemorySelection | None:
         if pose_path_memory is None or historical_ranker is None or current_frame_id is None:
             return None
@@ -1024,6 +1149,7 @@ class PoseAwareMemorySelector:
             self.stability,
             initial_window_ids=initial_window_ids,
             ranking_config=ranking_config,
+            pose_cluster_memory=pose_cluster_memory,
         )
         best = historical_ranker.best(
             candidates,
@@ -1054,6 +1180,10 @@ class PoseAwareMemorySelector:
             best_candidate_pose_distance=float(best.pose_distance),
             best_candidate_yaw_delta=float(best.yaw_delta),
             best_candidate_frame_gap=int(best.frame_gap),
+            best_candidate_first_visit=float(best.first_visit_score),
+            best_candidate_visit_age=float(best.visit_age_score),
+            best_candidate_cluster_id=int(best.cluster_id),
+            best_candidate_first_visit_frame_id=best.first_visit_frame_id,
             rank_reason=best.reason,
         )
 
@@ -1663,11 +1793,18 @@ class PhysMemScheduler(MemoryScheduler):
         self.use_pose_path_memory = bool(use_pose_path_memory)
         self.ranking_config = ranking_config or HierarchicalRankingConfig()
         self.initial_window_ids: list[int] | None = None
+        self.retrieved_reference_ids: list[int] | None = None
+        self.retrieved_reference_active: bool = False
+        self.retrieved_reference_remaining: int = 0
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
         self.pose_memory = PoseMemory()
         self.key_pose_memory = KeyPoseMemory(stability=self.stability)
         self.pose_path_memory = PosePathMemory()
+        self.pose_cluster_memory = PoseClusterMemory(
+            stability=self.stability,
+            first_visit_decay=self.ranking_config.first_visit_decay,
+        )
         self.policy_selector = MemoryPolicySelector()
         self.historical_ranker = HistoricalWindowRanker(min_score=self.ranking_config.min_score)
         self.pose_validator = PoseValidator(self.stability)
@@ -1733,7 +1870,22 @@ class PhysMemScheduler(MemoryScheduler):
                 use_pose_path_memory=self.use_pose_path_memory,
                 ranking_config=self.ranking_config,
                 initial_window_ids=self.initial_window_ids,
+                pose_cluster_memory=self.pose_cluster_memory,
             )
+            # v4.6.1: retrieved reference window lifecycle (used by causal_inference
+            # as the ORB comparison anchor; never injected into the active window).
+            if memory_selection.mode in {"retrieve_window", "soft_reuse_window"} and memory_selection.target_window_ids:
+                self.retrieved_reference_ids = self._sanitize_window(
+                    memory_selection.target_window_ids,
+                    memory_buffer.current_frame_id,
+                )
+                self.retrieved_reference_active = bool(self.retrieved_reference_ids)
+                self.retrieved_reference_remaining = max(1, int(self.ranking_config.reference_window_ttl))
+            elif self.retrieved_reference_active:
+                self.retrieved_reference_remaining -= 1
+                if self.retrieved_reference_remaining <= 0:
+                    self.retrieved_reference_active = False
+                    self.retrieved_reference_ids = None
             pose_validation = self.pose_validator.validate(
                 pose_state,
                 self.pose_memory,
@@ -1791,6 +1943,7 @@ class PhysMemScheduler(MemoryScheduler):
                 memory_selection,
                 stability_score=float(proposal.appearance_score),
             )
+            self.pose_cluster_memory.add(memory_buffer.current_frame_id, pose_state)
         keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state, memory_selection)
         score = float(
             unified_memory_score
@@ -1855,10 +2008,15 @@ class PhysMemScheduler(MemoryScheduler):
         ids = memory_buffer.snapshot()
         if memory_state == "KEEP":
             if memory_selection is not None and memory_selection.mode in {"retrieve_window", "soft_reuse_window"} and memory_selection.target_window_ids:
-                keep_ids = self._compose_retrieved_window(ids, memory_selection.target_window_ids, memory_selection.protected_frame_ids)
-                delete_ids = [frame_id for frame_id in ids if frame_id not in set(keep_ids)]
-                kv_policy = "retrieve_pose_window" if memory_selection.mode == "retrieve_window" else "soft_reuse_pose_window"
-                return keep_ids, delete_ids, [], max(0, len(ids) - len(keep_ids)), kv_policy, 0
+                # v4.6.1: retrieval must NOT inject historical ids into the
+                # active window. The retrieved reference window is recorded in
+                # PhysMemScheduler.retrieved_reference_ids (see schedule()) and
+                # used as the ORB comparison anchor in causal_inference. Here the
+                # active window follows the normal KEEP (preserve early anchor)
+                # semantics so window_ids stays a valid temporal sequence.
+                delete_ids = ids[3:6]
+                keep_ids = ids[:3] + ids[6:]
+                return keep_ids, delete_ids, [], 3, "preserve_anchor", 1
             delete_ids = ids[3:6]
             keep_ids = ids[:3] + ids[6:]
             if memory_selection is not None and memory_selection.target_frame_id is not None:
@@ -1896,6 +2054,23 @@ class PhysMemScheduler(MemoryScheduler):
         delete_ids = ids[:3]
         keep_ids = ids[3:]
         return keep_ids, delete_ids, [], 3, "replace_stale", 0
+
+    @staticmethod
+    def _sanitize_window(ids: list[int], current_frame_id: int) -> list[int]:
+        """v4.6.1: build a valid historical reference window (dedup, exclude
+        not-yet-generated ids, ascending order, capped at 9)."""
+        seen: set[int] = set()
+        out: list[int] = []
+        for frame_id in ids:
+            frame_id = int(frame_id)
+            if frame_id >= int(current_frame_id) or frame_id < 0:
+                continue
+            if frame_id in seen:
+                continue
+            seen.add(frame_id)
+            out.append(frame_id)
+        out.sort()
+        return out[:9]
 
     @staticmethod
     def _protect_target(ids: list[int], keep_ids: list[int], delete_ids: list[int], target_frame_id: int) -> list[int]:

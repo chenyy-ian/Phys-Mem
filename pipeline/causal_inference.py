@@ -346,6 +346,10 @@ class StableWorldDebugLogger:
                     "best_candidate_pose_distance",
                     "best_candidate_yaw_delta",
                     "best_candidate_frame_gap",
+                    "best_candidate_first_visit",
+                    "best_candidate_visit_age",
+                    "best_candidate_cluster_id",
+                    "best_candidate_first_visit_frame_id",
                     "target_window_ids",
                     "retrieved_window_ids",
                     "window_rank_reason",
@@ -381,6 +385,9 @@ class StableWorldDebugLogger:
                     "action_explanation",
                     "use_pose_memory",
                     "use_pose_path_memory",
+                    "reference_override_used",
+                    "retrieved_reference_active",
+                    "retrieved_reference_ids",
                 ],
             )
             writer.writeheader()
@@ -742,6 +749,16 @@ def schedule_stableworld_window_tri_9(
     id5 = memory_buffer.middle_frame_id
     current_id = memory_buffer.current_frame_id
     window_before = memory_buffer.snapshot()
+    reference_override_used = False
+    if memory_scheduler_name == "physmem" and physmem_scheduler is not None:
+        # v4.6.1: when a retrieval reference window is active, use it as the ORB
+        # comparison anchor so revisit consistency is judged against the
+        # retrieved historical window instead of only the active window.
+        if getattr(physmem_scheduler, "retrieved_reference_active", False) and physmem_scheduler.retrieved_reference_ids:
+            ref_ids = [int(fid) for fid in physmem_scheduler.retrieved_reference_ids if int(fid) < int(current_id)]
+            if len(ref_ids) >= 3:
+                id2 = ref_ids[2]
+                reference_override_used = True
 
     img2 = get_decoded_frame_by_latent(videos, id2, sub=sub)
     img5 = get_decoded_frame_by_latent(videos, id5, sub=sub)
@@ -868,6 +885,10 @@ def schedule_stableworld_window_tri_9(
                 "best_candidate_pose_distance": float(getattr(memory_selection_for_log, "best_candidate_pose_distance", 0.0) or 0.0),
                 "best_candidate_yaw_delta": float(getattr(memory_selection_for_log, "best_candidate_yaw_delta", 0.0) or 0.0),
                 "best_candidate_frame_gap": int(getattr(memory_selection_for_log, "best_candidate_frame_gap", 0) or 0),
+                "best_candidate_first_visit": float(getattr(memory_selection_for_log, "best_candidate_first_visit", 0.0) or 0.0),
+                "best_candidate_visit_age": float(getattr(memory_selection_for_log, "best_candidate_visit_age", 0.0) or 0.0),
+                "best_candidate_cluster_id": int(getattr(memory_selection_for_log, "best_candidate_cluster_id", -1) or -1),
+                "best_candidate_first_visit_frame_id": getattr(memory_selection_for_log, "best_candidate_first_visit_frame_id", None),
                 "target_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
                 "retrieved_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
                 "window_rank_reason": getattr(memory_selection_for_log, "rank_reason", ""),
@@ -960,6 +981,17 @@ def schedule_stableworld_window_tri_9(
             **action_mode_extra,
             **turn_extra,
             **pose_extra,
+            reference_override_used=bool(reference_override_used),
+            retrieved_reference_active=bool(
+                getattr(physmem_scheduler, "retrieved_reference_active", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
+            retrieved_reference_ids=(
+                " ".join(str(fid) for fid in (physmem_scheduler.retrieved_reference_ids or []))
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else ""
+            ),
         )
 
     if debug_logger is not None:
@@ -1078,6 +1110,10 @@ def schedule_stableworld_window_tri_9(
                 "best_candidate_pose_distance": float(getattr(memory_selection_for_log, "best_candidate_pose_distance", 0.0) or 0.0),
                 "best_candidate_yaw_delta": float(getattr(memory_selection_for_log, "best_candidate_yaw_delta", 0.0) or 0.0),
                 "best_candidate_frame_gap": int(getattr(memory_selection_for_log, "best_candidate_frame_gap", 0) or 0),
+                "best_candidate_first_visit": float(getattr(memory_selection_for_log, "best_candidate_first_visit", 0.0) or 0.0),
+                "best_candidate_visit_age": float(getattr(memory_selection_for_log, "best_candidate_visit_age", 0.0) or 0.0),
+                "best_candidate_cluster_id": int(getattr(memory_selection_for_log, "best_candidate_cluster_id", -1) or -1),
+                "best_candidate_first_visit_frame_id": getattr(memory_selection_for_log, "best_candidate_first_visit_frame_id", None),
                 "target_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
                 "retrieved_window_ids": " ".join(str(frame_id) for frame_id in getattr(memory_selection_for_log, "target_window_ids", []) or []),
                 "window_rank_reason": getattr(memory_selection_for_log, "rank_reason", ""),
@@ -1133,6 +1169,17 @@ def schedule_stableworld_window_tri_9(
             "action_explanation": getattr(action_state, "action_explanation", ""),
             "use_pose_memory": bool(use_pose_memory),
             "use_pose_path_memory": bool(use_pose_path_memory),
+            "reference_override_used": bool(reference_override_used),
+            "retrieved_reference_active": bool(
+                getattr(physmem_scheduler, "retrieved_reference_active", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
+            "retrieved_reference_ids": (
+                " ".join(str(fid) for fid in (physmem_scheduler.retrieved_reference_ids or []))
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else ""
+            ),
         })
         debug_logger.log_decision(debug_record)
         debug_logger.log_physmem(debug_record)
