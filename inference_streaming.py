@@ -26,7 +26,7 @@ def parse_args():
                         help="Max number of output latent frames")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--pretrained_model_path", type=str, default="Matrix-Game-2.0", help="Path to the VAE model folder")
-    parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress"], help="Action preset used to build keyboard/mouse conditions")
+    parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress", "physmem_revisit"], help="Action preset used to build keyboard/mouse conditions")
     args = parser.parse_args()
     return args
 

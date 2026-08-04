@@ -50,7 +50,7 @@ def parse_args():
     parser.add_argument("--fusion_weight_intent", type=float, default=0.25, help="Intent evidence weight for fusion debug outputs")
     parser.add_argument("--memory_scheduler", type=str, default="stableworld", choices=["stableworld", "physmem"], help="Memory scheduler used by StableWorld")
     parser.add_argument("--evidence_mode", type=str, default="single", choices=["single", "multi", "fusion", "physmem"], help="Evidence collection mode. Use single for baseline comparisons and multi for full Phys-Mem.")
-    parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress"], help="Action preset used to build keyboard/mouse conditions")
+    parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress", "physmem_revisit"], help="Action preset used to build keyboard/mouse conditions")
     parser.add_argument("--use_pose_memory", type=str2bool, default=True, help="Enable lightweight pose memory for PhysMem scheduling")
     parser.add_argument("--use_pose_path_memory", type=str2bool, default=True, help="Enable policy-gated pose-path memory window retrieval for PhysMem scheduling")
     args = parser.parse_args()
