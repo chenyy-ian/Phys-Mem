@@ -1823,9 +1823,9 @@ class PhysMemStateMachine:
             and candidate != self.last_state
             and proposal.state == candidate
             and (
-                self.stability.stable_score - self.stability.hysteresis_band
+                self.policy.stable_score - self.stability.hysteresis_band
                 <= proposal.appearance_score
-                <= self.stability.stable_score + self.stability.hysteresis_band
+                <= self.policy.stable_score + self.stability.hysteresis_band
             )
         ):
             self.last_state_held = True
