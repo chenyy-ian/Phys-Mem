@@ -21,6 +21,24 @@ from .physmem_scheduler import PhysMemScheduler
 from .stableworld_similarity import build_similarity_estimator, orb_ransac_score_chw
 from tqdm import tqdm
 
+
+def _apply_hysteresis_overrides(
+    scheduler,
+    hysteresis_enabled: bool | None = None,
+    hysteresis_band: float | None = None,
+) -> None:
+    """v5.2: apply CLI overrides for the KEEP<->INSERT hysteresis band onto a
+    PhysMemScheduler (mirrored onto its policy so ProposalEngine sees it)."""
+    if scheduler is None:
+        return
+    if hysteresis_enabled is not None:
+        scheduler.stability.hysteresis_enabled = bool(hysteresis_enabled)
+        scheduler.policy.hysteresis_enabled = bool(hysteresis_enabled)
+    if hysteresis_band is not None:
+        scheduler.stability.hysteresis_band = float(hysteresis_band)
+        scheduler.policy.hysteresis_band = float(hysteresis_band)
+
+
 def get_current_action(mode="universal"):
 
     CAM_VALUE = 0.1
@@ -395,6 +413,8 @@ class StableWorldDebugLogger:
                     "anchor_gap",
                     "anchor_lag",
                     "hysteresis_hold",
+                    "protection_hold",
+                    "last_state_held",
                 ],
             )
             writer.writeheader()
@@ -736,6 +756,8 @@ def schedule_stableworld_window_tri_9(
     physmem_scheduler: PhysMemScheduler | None = None,
     use_pose_memory: bool = True,
     use_pose_path_memory: bool = True,
+    hysteresis_enabled: bool | None = None,
+    hysteresis_band: float | None = None,
     num_frame_per_block: int = 1,
     mode: str = "universal",
 ) -> tuple[int, list, float, str]:
@@ -807,6 +829,7 @@ def schedule_stableworld_window_tri_9(
             use_pose_memory=use_pose_memory,
             use_pose_path_memory=use_pose_path_memory,
         )
+        _apply_hysteresis_overrides(scheduler, hysteresis_enabled, hysteresis_band)
         geometry_evidence = evidence_bundle.evidences.get("geometry")
         geometry_confidence_for_policy = float(geometry_evidence.confidence if geometry_evidence is not None else 1.0)
         intent_state_for_policy = getattr(action_state, "intent_state", "Unknown")
@@ -1028,6 +1051,16 @@ def schedule_stableworld_window_tri_9(
                 else -1.0
             ),
             hysteresis_hold=bool(getattr(decision, "hysteresis_hold", False)),
+            protection_hold=bool(
+                getattr(physmem_scheduler, "last_protection_hold", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
+            last_state_held=bool(
+                getattr(getattr(physmem_scheduler, "state_machine", None), "last_state_held", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
         )
 
     if debug_logger is not None:
@@ -1245,6 +1278,16 @@ def schedule_stableworld_window_tri_9(
                 else -1.0
             ),
             "hysteresis_hold": bool(getattr(decision, "hysteresis_hold", False)),
+            "protection_hold": bool(
+                getattr(physmem_scheduler, "last_protection_hold", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
+            "last_state_held": bool(
+                getattr(getattr(physmem_scheduler, "state_machine", None), "last_state_held", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
         })
         debug_logger.log_decision(debug_record)
         debug_logger.log_physmem(debug_record)
@@ -1316,6 +1359,8 @@ class CausalInferencePipeline(torch.nn.Module):
         evidence_mode: str = "single",
         use_pose_memory: bool = True,
         use_pose_path_memory: bool = True,
+        hysteresis_enabled: bool | None = None,
+        hysteresis_band: float | None = None,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -1368,6 +1413,7 @@ class CausalInferencePipeline(torch.nn.Module):
             use_pose_memory=use_pose_memory,
             use_pose_path_memory=use_pose_path_memory,
         ) if memory_scheduler_name == "physmem" else None
+        _apply_hysteresis_overrides(physmem_scheduler, hysteresis_enabled, hysteresis_band)
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
             debug_logger = StableWorldDebugLogger(debug_output_dir, fusion_config=fusion_config)
@@ -1396,6 +1442,20 @@ class CausalInferencePipeline(torch.nn.Module):
                     "evidence_mode": evidence_mode,
                     "num_output_frames": num_output_frames,
                     "num_frame_per_block": self.num_frame_per_block,
+                    "hysteresis_enabled": (
+                        bool(hysteresis_enabled)
+                        if hysteresis_enabled is not None
+                        else bool(physmem_scheduler.stability.hysteresis_enabled)
+                        if physmem_scheduler is not None
+                        else False
+                    ),
+                    "hysteresis_band": (
+                        float(hysteresis_band)
+                        if hysteresis_band is not None
+                        else float(physmem_scheduler.stability.hysteresis_band)
+                        if physmem_scheduler is not None
+                        else 0.0
+                    ),
                 },
             )
 
@@ -1520,10 +1580,12 @@ class CausalInferencePipeline(torch.nn.Module):
                     evidence_mode=evidence_mode,
                     evidence_collector=evidence_collector,
                     physmem_scheduler=physmem_scheduler,
-                    use_pose_memory=use_pose_memory,
-                    use_pose_path_memory=use_pose_path_memory,
-                    num_frame_per_block=self.num_frame_per_block,
-                    mode=mode,
+                use_pose_memory=use_pose_memory,
+                use_pose_path_memory=use_pose_path_memory,
+                hysteresis_enabled=hysteresis_enabled,
+                hysteresis_band=hysteresis_band,
+                num_frame_per_block=self.num_frame_per_block,
+                mode=mode,
                 )
                 if debug_logger is not None:
                     debug_logger.log_event(current_start_frame, "Similarity", f"similarity={sim_min:.4f}")

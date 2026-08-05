@@ -53,6 +53,8 @@ def parse_args():
     parser.add_argument("--action_preset", type=str, default="default", choices=["default", "static", "physmem_stress", "physmem_revisit"], help="Action preset used to build keyboard/mouse conditions")
     parser.add_argument("--use_pose_memory", type=str2bool, default=True, help="Enable lightweight pose memory for PhysMem scheduling")
     parser.add_argument("--use_pose_path_memory", type=str2bool, default=True, help="Enable policy-gated pose-path memory window retrieval for PhysMem scheduling")
+    parser.add_argument("--hysteresis_enabled", type=str2bool, default=None, help="v5.2 override: enable KEEP<->INSERT hysteresis (default: StrategyStabilityConfig)")
+    parser.add_argument("--hysteresis_band", type=float, default=None, help="v5.2 override: hysteresis band (default: StrategyStabilityConfig)")
     args = parser.parse_args()
     return args
 
@@ -183,6 +185,8 @@ class InteractiveGameInference:
                 evidence_mode=self.args.evidence_mode,
                 use_pose_memory=self.args.use_pose_memory,
                 use_pose_path_memory=self.args.use_pose_path_memory,
+                hysteresis_enabled=self.args.hysteresis_enabled,
+                hysteresis_band=self.args.hysteresis_band,
             )
 
         videos_tensor = torch.cat(videos, dim=1)

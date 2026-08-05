@@ -281,10 +281,16 @@ class StrategyStabilityConfig:
     anchor_protection_min_frames: int = 9
     anchor_protection_max_frames: int = 30
     anchor_protection_min_displacement: float = 0.75
-    # v5.1 Memory Transition Stability: hysteresis band for KEEP<->INSERT
-    # chattering (default off, for ablation).
-    hysteresis_enabled: bool = False
+    # v5.1/v5.2 Memory Transition Stability: hysteresis band for KEEP<->INSERT
+    # chattering. v5.2: enabled by default (proved boundary instability).
+    hysteresis_enabled: bool = True
     hysteresis_band: float = 0.04
+    # v5.2 protection-release hysteresis: release the initial-anchor protection
+    # only after displacement exceeds release_high, and re-protect only below
+    # release_low, so the frame-18 release boundary does not chatter.
+    protection_hysteresis_enabled: bool = True
+    protection_release_high: float = 0.9
+    protection_release_low: float = 0.6
     # v5.1 Anchor Lag observation (logging only, no decision).
     anchor_lag_distance_weight: float = 0.7
     anchor_lag_gap_weight: float = 0.3
@@ -1638,6 +1644,7 @@ class PhysMemStateMachine:
         self.last_state = "KEEP"
         self.replace_cooldown_remaining = 0
         self.evict_cooldown_remaining = 0
+        self.last_state_held = False
 
     def transition(
         self,
@@ -1749,6 +1756,7 @@ class PhysMemStateMachine:
         action_mode: ActionModeState,
         turn_state: TurnState,
     ) -> tuple[str, str]:
+        self.last_state_held = False
         if turn_state.state in {"TurnInProgress", "PostTurnStabilization"} and candidate in {"REPLACE", "EVICT"}:
             return "INSERT", f"turn_{turn_state.state.lower()}_blocks_hard_update"
         if action_mode.mode == "Locomotion Only":
@@ -1804,6 +1812,25 @@ class PhysMemStateMachine:
             if proposal.state == "KEEP":
                 return "KEEP", f"insert_hysteresis_enter={self.stability.insert_enter_probability:.2f}"
 
+        # v5.2 state-level hysteresis: hold the previous state for score-driven
+        # KEEP<->INSERT chattering. Semantic constraints above already handled;
+        # here the flip is only held when the proposal itself (score-driven)
+        # crosses within the band.
+        if (
+            self.stability.hysteresis_enabled
+            and candidate in {"KEEP", "INSERT"}
+            and self.last_state in {"KEEP", "INSERT"}
+            and candidate != self.last_state
+            and proposal.state == candidate
+            and (
+                self.stability.stable_score - self.stability.hysteresis_band
+                <= proposal.appearance_score
+                <= self.stability.stable_score + self.stability.hysteresis_band
+            )
+        ):
+            self.last_state_held = True
+            return self.last_state, f"state_hysteresis_hold:{candidate}->{self.last_state}"
+
         return candidate, ""
 
     def _update_cooldown(self, state: str):
@@ -1846,6 +1873,8 @@ class PhysMemScheduler(MemoryScheduler):
             "anchor_lag": -1.0,
         }
         self.last_anchor_protection: tuple = (False, [])
+        self.last_protection_active: bool = False
+        self.last_protection_hold: bool = False
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
         self.pose_memory = PoseMemory()
@@ -2034,18 +2063,39 @@ class PhysMemScheduler(MemoryScheduler):
         proves the world has stabilized, with a hard cap at max_frames."""
         stability = self.stability
         if not stability.anchor_protection_enabled:
+            self.last_protection_active = False
+            self.last_protection_hold = False
             return False, []
         current = int(memory_buffer.current_frame_id)
         if current > int(stability.anchor_protection_max_frames):
+            self.last_protection_active = False
+            self.last_protection_hold = False
             return False, []
         window_set = set(memory_buffer.snapshot())
         protected = [fid for fid in (self.initial_window_ids or [])[:3] if fid in window_set]
-        if current <= int(stability.anchor_protection_min_frames):
-            return True, protected
         displacement = float(getattr(trajectory_state, "accumulated_distance", 0.0) or 0.0)
-        if displacement < float(stability.anchor_protection_min_displacement):
-            return True, protected
-        return False, []
+        if current <= int(stability.anchor_protection_min_frames):
+            active, hold = True, False
+        elif not stability.protection_hysteresis_enabled:
+            active = displacement < float(stability.anchor_protection_min_displacement)
+            hold = False
+        elif self.last_protection_active:
+            if displacement < float(stability.protection_release_low):
+                active, hold = True, False
+            elif displacement < float(stability.protection_release_high):
+                active, hold = True, True      # release held by hysteresis
+            else:
+                active, hold = False, False
+        else:
+            if displacement <= float(stability.protection_release_low):
+                active, hold = True, False
+            elif displacement <= float(stability.protection_release_high):
+                active, hold = False, True     # re-protection held by hysteresis
+            else:
+                active, hold = False, False
+        self.last_protection_active = active
+        self.last_protection_hold = hold
+        return active, protected
 
     def _anchor_lag_report(
         self,
