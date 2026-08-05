@@ -23,6 +23,7 @@ class MemoryDecision:
     refresh_ids: List[int] = field(default_factory=list)
     insert_count: int = 3
     kv_policy: str = "legacy"
+    hysteresis_hold: bool = False
 
     @property
     def delete_frame(self) -> int:
@@ -141,6 +142,9 @@ class MemoryPolicy:
     refresh_score: float = 0.58
     low_geometry_confidence: float = 0.35
     high_intent_confidence: float = 0.70
+    # v5.1 Memory Transition Stability (mirrored from StrategyStabilityConfig).
+    hysteresis_enabled: bool = False
+    hysteresis_band: float = 0.04
     active_intents: set[str] = field(default_factory=lambda: {
         "Walk",
         "Run",

@@ -14,6 +14,7 @@ class MemoryProposal:
     source: str
     appearance_score: float
     confidence: float
+    hysteresis_hold: bool = False
 
 
 @dataclass
@@ -274,6 +275,20 @@ class StrategyStabilityConfig:
     turn_start_frames: int = 1
     turn_stabilization_frames: int = 2
     turn_rotation_threshold: float = 0.02
+    # v5.1 Anchor Importance Prior: protect the initial world anchor (frames
+    # 0,1,2) until the world has stabilized (frame count + accumulated motion).
+    anchor_protection_enabled: bool = True
+    anchor_protection_min_frames: int = 9
+    anchor_protection_max_frames: int = 30
+    anchor_protection_min_displacement: float = 0.75
+    # v5.1 Memory Transition Stability: hysteresis band for KEEP<->INSERT
+    # chattering (default off, for ablation).
+    hysteresis_enabled: bool = False
+    hysteresis_band: float = 0.04
+    # v5.1 Anchor Lag observation (logging only, no decision).
+    anchor_lag_distance_weight: float = 0.7
+    anchor_lag_gap_weight: float = 0.3
+    anchor_lag_gap_norm: int = 60
 
 
 @dataclass
@@ -1290,16 +1305,40 @@ class RevisitGate:
 class ProposalEngine:
     def __init__(self, policy: MemoryPolicy):
         self.policy = policy
+        self.last_proposal_state: str | None = None
 
     def propose(self, similarity: SimilarityResult, fusion_result: Any = None) -> MemoryProposal:
         appearance_score = self._appearance_score(similarity, fusion_result)
-        state = "KEEP" if appearance_score >= self.policy.stable_score else "INSERT"
+        state, hold = self._resolve_state(appearance_score)
         return MemoryProposal(
             state=state,
             source="orb_appearance",
             appearance_score=appearance_score,
             confidence=float(np.clip(similarity.confidence, 0.0, 1.0)),
+            hysteresis_hold=hold,
         )
+
+    def _resolve_state(self, appearance_score: float) -> tuple[str, bool]:
+        """v5.1 Memory Transition Stability: when enabled, KEEP<->INSERT needs
+        to cross stable_score +/- band; inside the band the previous state is
+        kept (anti-chattering)."""
+        if getattr(self.policy, "hysteresis_enabled", False):
+            band = float(getattr(self.policy, "hysteresis_band", 0.04))
+            high = float(self.policy.stable_score) + band
+            low = float(self.policy.stable_score) - band
+            if appearance_score > high:
+                state = "KEEP"
+            elif appearance_score < low:
+                state = "INSERT"
+            elif self.last_proposal_state in {"KEEP", "INSERT"}:
+                return self.last_proposal_state, True
+            else:
+                state = "KEEP" if appearance_score >= self.policy.stable_score else "INSERT"
+            self.last_proposal_state = state
+            return state, False
+        state = "KEEP" if appearance_score >= self.policy.stable_score else "INSERT"
+        self.last_proposal_state = state
+        return state, False
 
     @staticmethod
     def _appearance_score(similarity: SimilarityResult, fusion_result: Any = None) -> float:
@@ -1789,6 +1828,10 @@ class PhysMemScheduler(MemoryScheduler):
         super().__init__(sim_threshold=sim_threshold)
         self.policy = policy or MemoryPolicy(stable_score=sim_threshold)
         self.stability = stability or StrategyStabilityConfig()
+        # v5.1: mirror hysteresis config from stability onto the policy so
+        # ProposalEngine can read it without a new dependency.
+        self.policy.hysteresis_enabled = bool(self.stability.hysteresis_enabled)
+        self.policy.hysteresis_band = float(self.stability.hysteresis_band)
         self.use_pose_memory = bool(use_pose_memory)
         self.use_pose_path_memory = bool(use_pose_path_memory)
         self.ranking_config = ranking_config or HierarchicalRankingConfig()
@@ -1796,6 +1839,13 @@ class PhysMemScheduler(MemoryScheduler):
         self.retrieved_reference_ids: list[int] | None = None
         self.retrieved_reference_active: bool = False
         self.retrieved_reference_remaining: int = 0
+        self.last_anchor_report: dict = {
+            "anchor_frame_id": -1,
+            "anchor_distance": -1.0,
+            "anchor_gap": 0,
+            "anchor_lag": -1.0,
+        }
+        self.last_anchor_protection: tuple = (False, [])
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
         self.pose_memory = PoseMemory()
@@ -1944,6 +1994,8 @@ class PhysMemScheduler(MemoryScheduler):
                 stability_score=float(proposal.appearance_score),
             )
             self.pose_cluster_memory.add(memory_buffer.current_frame_id, pose_state)
+            self.last_anchor_report = self._anchor_lag_report(memory_buffer, pose_state)
+            self.last_anchor_protection = self._anchor_protection_state(memory_buffer, trajectory_state)
         keep_ids, delete_range, refresh_ids, insert_count, kv_policy, evict_middle = self._strategy_plan(memory_buffer, memory_state, memory_selection)
         score = float(
             unified_memory_score
@@ -1969,7 +2021,62 @@ class PhysMemScheduler(MemoryScheduler):
             refresh_ids=refresh_ids,
             insert_count=insert_count,
             kv_policy=kv_policy,
+            hysteresis_hold=bool(getattr(proposal, "hysteresis_hold", False)),
         )
+
+    def _anchor_protection_state(
+        self,
+        memory_buffer: MemoryBuffer,
+        trajectory_state: TrajectoryState,
+    ) -> tuple[bool, list[int]]:
+        """v5.1 Anchor Importance Prior: protect the initial anchor frames
+        (0,1,2) at least for min_frames, then until the accumulated motion
+        proves the world has stabilized, with a hard cap at max_frames."""
+        stability = self.stability
+        if not stability.anchor_protection_enabled:
+            return False, []
+        current = int(memory_buffer.current_frame_id)
+        if current > int(stability.anchor_protection_max_frames):
+            return False, []
+        window_set = set(memory_buffer.snapshot())
+        protected = [fid for fid in (self.initial_window_ids or [])[:3] if fid in window_set]
+        if current <= int(stability.anchor_protection_min_frames):
+            return True, protected
+        displacement = float(getattr(trajectory_state, "accumulated_distance", 0.0) or 0.0)
+        if displacement < float(stability.anchor_protection_min_displacement):
+            return True, protected
+        return False, []
+
+    def _anchor_lag_report(
+        self,
+        memory_buffer: MemoryBuffer,
+        pose_state: PoseState | None,
+    ) -> dict:
+        """v5.1 Anchor Lag observation (logging only):
+        lag = w_d * distance(current, anchor) + w_g * normalized gap."""
+        stability = self.stability
+        anchor_frame_id = int(memory_buffer.reference_frame_id)
+        anchor_pose = self.pose_memory.get(anchor_frame_id) if self.pose_memory is not None else None
+        anchor_distance = (
+            PoseMemory.distance(pose_state, anchor_pose)
+            if pose_state is not None and anchor_pose is not None
+            else -1.0
+        )
+        anchor_gap = int(memory_buffer.current_frame_id) - anchor_frame_id
+        if anchor_distance < 0:
+            anchor_lag = -1.0
+        else:
+            normalized_gap = min(max(anchor_gap, 0) / max(float(stability.anchor_lag_gap_norm), 1.0), 1.0)
+            anchor_lag = float(
+                stability.anchor_lag_distance_weight * anchor_distance
+                + stability.anchor_lag_gap_weight * normalized_gap
+            )
+        return {
+            "anchor_frame_id": anchor_frame_id,
+            "anchor_distance": float(anchor_distance),
+            "anchor_gap": int(anchor_gap),
+            "anchor_lag": float(anchor_lag),
+        }
 
     def _update_source_anchor(
         self,
@@ -2006,6 +2113,15 @@ class PhysMemScheduler(MemoryScheduler):
         memory_selection: MemorySelection | None = None,
     ) -> tuple[list[int], list[int], list[int], int, str, int]:
         ids = memory_buffer.snapshot()
+        # v5.1 Anchor Importance Prior: during initial-world stabilization,
+        # non-KEEP states degrade to KEEP so boundary flips can never evict the
+        # initial anchor frames (0,1,2).
+        if memory_state in {"INSERT", "REPLACE", "EVICT", "REFRESH"}:
+            protection_active, _protected_ids = getattr(self, "last_anchor_protection", (False, []))
+            if protection_active:
+                delete_ids = ids[3:6]
+                keep_ids = ids[:3] + ids[6:]
+                return keep_ids, delete_ids, [], 3, "preserve_anchor", 1
         if memory_state == "KEEP":
             if memory_selection is not None and memory_selection.mode in {"retrieve_window", "soft_reuse_window"} and memory_selection.target_window_ids:
                 # v4.6.1: retrieval must NOT inject historical ids into the

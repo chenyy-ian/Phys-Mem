@@ -388,6 +388,13 @@ class StableWorldDebugLogger:
                     "reference_override_used",
                     "retrieved_reference_active",
                     "retrieved_reference_ids",
+                    "initial_anchor_protected",
+                    "protected_frame_ids",
+                    "anchor_frame_id",
+                    "anchor_distance",
+                    "anchor_gap",
+                    "anchor_lag",
+                    "hysteresis_hold",
                 ],
             )
             writer.writeheader()
@@ -992,6 +999,35 @@ def schedule_stableworld_window_tri_9(
                 if memory_scheduler_name == "physmem" and physmem_scheduler is not None
                 else ""
             ),
+            initial_anchor_protected=bool(
+                getattr(physmem_scheduler, "last_anchor_protection", (False, []))[0]
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
+            protected_frame_ids=" ".join(
+                str(fid) for fid in (getattr(physmem_scheduler, "last_anchor_protection", (False, []))[1] or [])
+            ),
+            anchor_frame_id=int(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_frame_id", -1)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else -1
+            ),
+            anchor_distance=float(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_distance", -1.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else -1.0
+            ),
+            anchor_gap=int(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_gap", 0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0
+            ),
+            anchor_lag=float(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_lag", -1.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else -1.0
+            ),
+            hysteresis_hold=bool(getattr(decision, "hysteresis_hold", False)),
         )
 
     if debug_logger is not None:
@@ -1180,6 +1216,35 @@ def schedule_stableworld_window_tri_9(
                 if memory_scheduler_name == "physmem" and physmem_scheduler is not None
                 else ""
             ),
+            "initial_anchor_protected": bool(
+                getattr(physmem_scheduler, "last_anchor_protection", (False, []))[0]
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
+            "protected_frame_ids": " ".join(
+                str(fid) for fid in (getattr(physmem_scheduler, "last_anchor_protection", (False, []))[1] or [])
+            ),
+            "anchor_frame_id": int(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_frame_id", -1)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else -1
+            ),
+            "anchor_distance": float(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_distance", -1.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else -1.0
+            ),
+            "anchor_gap": int(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_gap", 0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0
+            ),
+            "anchor_lag": float(
+                getattr(physmem_scheduler, "last_anchor_report", {}).get("anchor_lag", -1.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else -1.0
+            ),
+            "hysteresis_hold": bool(getattr(decision, "hysteresis_hold", False)),
         })
         debug_logger.log_decision(debug_record)
         debug_logger.log_physmem(debug_record)
