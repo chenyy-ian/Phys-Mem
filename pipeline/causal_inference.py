@@ -17,7 +17,7 @@ from .stableworld_action import ActionIntentEngine
 from .stableworld_evidence import EvidenceCollector
 from .stableworld_fusion import EvidenceValue, FusionBenchmark, FusionConfig, FusionEngine, FusionVisualizer
 from .stableworld_memory import MemoryBuffer, MemoryPolicy, MemoryScheduler
-from .physmem_scheduler import PhysMemScheduler
+from .physmem_scheduler import PhysMemScheduler, TemporalEvidenceStabilizer
 from .stableworld_similarity import build_similarity_estimator, orb_ransac_score_chw
 from tqdm import tqdm
 
@@ -37,6 +37,25 @@ def _apply_hysteresis_overrides(
     if hysteresis_band is not None:
         scheduler.stability.hysteresis_band = float(hysteresis_band)
         scheduler.policy.hysteresis_band = float(hysteresis_band)
+
+
+def _apply_evidence_overrides(
+    scheduler,
+    evidence_stabilization_enabled: bool | None = None,
+    evidence_smoothing_alpha: float | None = None,
+) -> None:
+    """v5.2b: apply CLI overrides for the temporal evidence stabilizer."""
+    if scheduler is None:
+        return
+    if evidence_stabilization_enabled is not None:
+        scheduler.stability.evidence_stabilization_enabled = bool(evidence_stabilization_enabled)
+    if evidence_smoothing_alpha is not None:
+        scheduler.stability.evidence_smoothing_alpha = float(evidence_smoothing_alpha)
+    scheduler.evidence_stabilizer = TemporalEvidenceStabilizer(
+        alpha=scheduler.stability.evidence_smoothing_alpha,
+        window=scheduler.stability.evidence_smoothing_window,
+        enabled=scheduler.stability.evidence_stabilization_enabled,
+    )
 
 
 def get_current_action(mode="universal"):
@@ -415,6 +434,11 @@ class StableWorldDebugLogger:
                     "hysteresis_hold",
                     "protection_hold",
                     "last_state_held",
+                    "raw_appearance",
+                    "smoothed_appearance",
+                    "evidence_delta",
+                    "evidence_variance",
+                    "stabilization_hold",
                 ],
             )
             writer.writeheader()
@@ -758,6 +782,8 @@ def schedule_stableworld_window_tri_9(
     use_pose_path_memory: bool = True,
     hysteresis_enabled: bool | None = None,
     hysteresis_band: float | None = None,
+    evidence_stabilization_enabled: bool | None = None,
+    evidence_smoothing_alpha: float | None = None,
     num_frame_per_block: int = 1,
     mode: str = "universal",
 ) -> tuple[int, list, float, str]:
@@ -830,6 +856,7 @@ def schedule_stableworld_window_tri_9(
             use_pose_path_memory=use_pose_path_memory,
         )
         _apply_hysteresis_overrides(scheduler, hysteresis_enabled, hysteresis_band)
+        _apply_evidence_overrides(scheduler, evidence_stabilization_enabled, evidence_smoothing_alpha)
         geometry_evidence = evidence_bundle.evidences.get("geometry")
         geometry_confidence_for_policy = float(geometry_evidence.confidence if geometry_evidence is not None else 1.0)
         intent_state_for_policy = getattr(action_state, "intent_state", "Unknown")
@@ -1061,6 +1088,31 @@ def schedule_stableworld_window_tri_9(
                 if memory_scheduler_name == "physmem" and physmem_scheduler is not None
                 else False
             ),
+            raw_appearance=float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("raw_appearance", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            smoothed_appearance=float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("smoothed_appearance", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            evidence_delta=float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("evidence_delta", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            evidence_variance=float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("evidence_variance", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            stabilization_hold=bool(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("stabilization_hold", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
         )
 
     if debug_logger is not None:
@@ -1288,6 +1340,31 @@ def schedule_stableworld_window_tri_9(
                 if memory_scheduler_name == "physmem" and physmem_scheduler is not None
                 else False
             ),
+            "raw_appearance": float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("raw_appearance", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            "smoothed_appearance": float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("smoothed_appearance", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            "evidence_delta": float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("evidence_delta", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            "evidence_variance": float(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("evidence_variance", 0.0)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else 0.0
+            ),
+            "stabilization_hold": bool(
+                getattr(physmem_scheduler, "last_evidence_report", {}).get("stabilization_hold", False)
+                if memory_scheduler_name == "physmem" and physmem_scheduler is not None
+                else False
+            ),
         })
         debug_logger.log_decision(debug_record)
         debug_logger.log_physmem(debug_record)
@@ -1361,6 +1438,8 @@ class CausalInferencePipeline(torch.nn.Module):
         use_pose_path_memory: bool = True,
         hysteresis_enabled: bool | None = None,
         hysteresis_band: float | None = None,
+        evidence_stabilization_enabled: bool | None = None,
+        evidence_smoothing_alpha: float | None = None,
     ) -> torch.Tensor:
         """
         Perform inference on the given noise and text prompts.
@@ -1414,6 +1493,7 @@ class CausalInferencePipeline(torch.nn.Module):
             use_pose_path_memory=use_pose_path_memory,
         ) if memory_scheduler_name == "physmem" else None
         _apply_hysteresis_overrides(physmem_scheduler, hysteresis_enabled, hysteresis_band)
+        _apply_evidence_overrides(physmem_scheduler, evidence_stabilization_enabled, evidence_smoothing_alpha)
         if debug_stableworld:
             debug_output_dir = debug_output_dir or "outputs/stableworld_debug"
             debug_logger = StableWorldDebugLogger(debug_output_dir, fusion_config=fusion_config)
@@ -1453,6 +1533,20 @@ class CausalInferencePipeline(torch.nn.Module):
                         float(hysteresis_band)
                         if hysteresis_band is not None
                         else float(physmem_scheduler.stability.hysteresis_band)
+                        if physmem_scheduler is not None
+                        else 0.0
+                    ),
+                    "evidence_stabilization_enabled": (
+                        bool(evidence_stabilization_enabled)
+                        if evidence_stabilization_enabled is not None
+                        else bool(physmem_scheduler.stability.evidence_stabilization_enabled)
+                        if physmem_scheduler is not None
+                        else False
+                    ),
+                    "evidence_smoothing_alpha": (
+                        float(evidence_smoothing_alpha)
+                        if evidence_smoothing_alpha is not None
+                        else float(physmem_scheduler.stability.evidence_smoothing_alpha)
                         if physmem_scheduler is not None
                         else 0.0
                     ),
@@ -1584,6 +1678,8 @@ class CausalInferencePipeline(torch.nn.Module):
                 use_pose_path_memory=use_pose_path_memory,
                 hysteresis_enabled=hysteresis_enabled,
                 hysteresis_band=hysteresis_band,
+                evidence_stabilization_enabled=evidence_stabilization_enabled,
+                evidence_smoothing_alpha=evidence_smoothing_alpha,
                 num_frame_per_block=self.num_frame_per_block,
                 mode=mode,
                 )

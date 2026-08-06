@@ -55,6 +55,8 @@ def parse_args():
     parser.add_argument("--use_pose_path_memory", type=str2bool, default=True, help="Enable policy-gated pose-path memory window retrieval for PhysMem scheduling")
     parser.add_argument("--hysteresis_enabled", type=str2bool, default=None, help="v5.2 override: enable KEEP<->INSERT hysteresis (default: StrategyStabilityConfig)")
     parser.add_argument("--hysteresis_band", type=float, default=None, help="v5.2 override: hysteresis band (default: StrategyStabilityConfig)")
+    parser.add_argument("--evidence_stabilization_enabled", type=str2bool, default=None, help="v5.2b override: enable temporal evidence stabilization (default: StrategyStabilityConfig)")
+    parser.add_argument("--evidence_smoothing_alpha", type=float, default=None, help="v5.2b override: EMA alpha for proposal appearance (default: StrategyStabilityConfig)")
     args = parser.parse_args()
     return args
 
@@ -187,6 +189,8 @@ class InteractiveGameInference:
                 use_pose_path_memory=self.args.use_pose_path_memory,
                 hysteresis_enabled=self.args.hysteresis_enabled,
                 hysteresis_band=self.args.hysteresis_band,
+                evidence_stabilization_enabled=self.args.evidence_stabilization_enabled,
+                evidence_smoothing_alpha=self.args.evidence_smoothing_alpha,
             )
 
         videos_tensor = torch.cat(videos, dim=1)

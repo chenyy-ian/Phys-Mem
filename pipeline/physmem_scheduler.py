@@ -291,10 +291,62 @@ class StrategyStabilityConfig:
     protection_hysteresis_enabled: bool = True
     protection_release_high: float = 0.9
     protection_release_low: float = 0.6
+    # v5.2b Temporal Evidence Consistency: EMA over the proposal appearance
+    # score so single-frame ORB noise (0.05+ run-to-run) cannot flip the
+    # discrete KEEP<->INSERT decision at the hysteresis band edge.
+    evidence_stabilization_enabled: bool = True
+    evidence_smoothing_alpha: float = 0.7
+    evidence_smoothing_window: int = 3
     # v5.1 Anchor Lag observation (logging only, no decision).
     anchor_lag_distance_weight: float = 0.7
     anchor_lag_gap_weight: float = 0.3
     anchor_lag_gap_norm: int = 60
+
+
+class TemporalEvidenceStabilizer:
+    """v5.2b: Temporal Evidence Consistency Modeling.
+
+    EMA over the proposal appearance score only. Semantic decision paths
+    (revisit/loop-closure, turn, trajectory) bypass this layer entirely.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.7,
+        window: int = 3,
+        enabled: bool = True,
+    ):
+        self.alpha = float(alpha)
+        self.window = int(window)
+        self.enabled = bool(enabled)
+        self.history: List[float] = []
+        self.smoothed: float | None = None
+        self.last_delta: float = 0.0
+        self.last_hold: bool = False
+        self.last_raw: float = 0.0
+
+    def reset(self) -> None:
+        self.history = []
+        self.smoothed = None
+        self.last_delta = 0.0
+        self.last_hold = False
+        self.last_raw = 0.0
+
+    def update(self, raw: float) -> float:
+        self.last_raw = float(raw)
+        if not self.enabled:
+            self.smoothed = self.last_raw
+            self.last_delta = 0.0
+            self.last_hold = False
+            return self.smoothed
+        self.history.append(self.last_raw)
+        if self.smoothed is None:
+            self.smoothed = self.last_raw
+        else:
+            self.smoothed = self.alpha * self.last_raw + (1.0 - self.alpha) * self.smoothed
+        self.last_delta = abs(self.last_raw - self.smoothed)
+        self.last_hold = self.last_delta < 1e-3
+        return float(self.smoothed)
 
 
 @dataclass
@@ -1313,8 +1365,17 @@ class ProposalEngine:
         self.policy = policy
         self.last_proposal_state: str | None = None
 
-    def propose(self, similarity: SimilarityResult, fusion_result: Any = None) -> MemoryProposal:
-        appearance_score = self._appearance_score(similarity, fusion_result)
+    def propose(
+        self,
+        similarity: SimilarityResult,
+        fusion_result: Any = None,
+        appearance_score_override: float | None = None,
+    ) -> MemoryProposal:
+        appearance_score = (
+            float(appearance_score_override)
+            if appearance_score_override is not None
+            else self._appearance_score(similarity, fusion_result)
+        )
         state, hold = self._resolve_state(appearance_score)
         return MemoryProposal(
             state=state,
@@ -1875,6 +1936,18 @@ class PhysMemScheduler(MemoryScheduler):
         self.last_anchor_protection: tuple = (False, [])
         self.last_protection_active: bool = False
         self.last_protection_hold: bool = False
+        self.evidence_stabilizer = TemporalEvidenceStabilizer(
+            alpha=self.stability.evidence_smoothing_alpha,
+            window=self.stability.evidence_smoothing_window,
+            enabled=self.stability.evidence_stabilization_enabled,
+        )
+        self.last_evidence_report: dict = {
+            "raw_appearance": 0.0,
+            "smoothed_appearance": 0.0,
+            "evidence_delta": 0.0,
+            "evidence_variance": 0.0,
+            "stabilization_hold": False,
+        }
         self.proposal_engine = ProposalEngine(self.policy)
         self.validator = EvidenceValidator(self.policy)
         self.pose_memory = PoseMemory()
@@ -1917,7 +1990,20 @@ class PhysMemScheduler(MemoryScheduler):
     ) -> MemoryDecision:
         if self.initial_window_ids is None:
             self.initial_window_ids = list(memory_buffer.snapshot())
-        proposal = self.proposal_engine.propose(similarity, fusion_result)
+        raw_appearance = self.proposal_engine._appearance_score(similarity, fusion_result)
+        smoothed_appearance = self.evidence_stabilizer.update(raw_appearance)
+        proposal = self.proposal_engine.propose(
+            similarity,
+            fusion_result,
+            appearance_score_override=smoothed_appearance,
+        )
+        self.last_evidence_report = {
+            "raw_appearance": float(raw_appearance),
+            "smoothed_appearance": float(smoothed_appearance),
+            "evidence_delta": float(self.evidence_stabilizer.last_delta),
+            "evidence_variance": float(self._evidence_variance()),
+            "stabilization_hold": bool(self.evidence_stabilizer.last_hold),
+        }
         validation = self.validator.validate(
             proposal,
             fusion_result=fusion_result,
@@ -2127,6 +2213,14 @@ class PhysMemScheduler(MemoryScheduler):
             "anchor_gap": int(anchor_gap),
             "anchor_lag": float(anchor_lag),
         }
+
+    def _evidence_variance(self) -> float:
+        """v5.2b: variance of the recent raw proposal-appearance values."""
+        values = list(self.evidence_stabilizer.history)
+        if len(values) < 2:
+            return 0.0
+        mean = float(np.mean(values))
+        return float(np.mean([(v - mean) ** 2 for v in values]))
 
     def _update_source_anchor(
         self,
