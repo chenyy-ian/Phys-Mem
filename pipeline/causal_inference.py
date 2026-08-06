@@ -47,15 +47,22 @@ def _apply_evidence_overrides(
     """v5.2b: apply CLI overrides for the temporal evidence stabilizer."""
     if scheduler is None:
         return
+    rebuild = False
     if evidence_stabilization_enabled is not None:
         scheduler.stability.evidence_stabilization_enabled = bool(evidence_stabilization_enabled)
+        rebuild = True
     if evidence_smoothing_alpha is not None:
         scheduler.stability.evidence_smoothing_alpha = float(evidence_smoothing_alpha)
-    scheduler.evidence_stabilizer = TemporalEvidenceStabilizer(
-        alpha=scheduler.stability.evidence_smoothing_alpha,
-        window=scheduler.stability.evidence_smoothing_window,
-        enabled=scheduler.stability.evidence_stabilization_enabled,
-    )
+        rebuild = True
+    # Only rebuild when an actual override was given; otherwise the stabilizer's
+    # EMA history must persist across blocks (rebuilding every call would reset
+    # it each block and disable temporal smoothing entirely).
+    if rebuild:
+        scheduler.evidence_stabilizer = TemporalEvidenceStabilizer(
+            alpha=scheduler.stability.evidence_smoothing_alpha,
+            window=scheduler.stability.evidence_smoothing_window,
+            enabled=scheduler.stability.evidence_stabilization_enabled,
+        )
 
 
 def get_current_action(mode="universal"):
