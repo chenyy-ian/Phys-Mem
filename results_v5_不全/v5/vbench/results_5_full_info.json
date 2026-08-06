@@ -1,0 +1,11 @@
+[
+    {
+        "prompt_en": "v5_phys",
+        "dimension": [
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/home/chenyiyang/Phys-Mem-v5/eval_videos/physmem_v5/v5_phys.mp4"
+        ]
+    }
+]

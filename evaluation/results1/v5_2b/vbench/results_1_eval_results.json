@@ -1,0 +1,11 @@
+{
+    "subject_consistency": [
+        0.8481923773133454,
+        [
+            {
+                "video_path": "/home/chenyiyang/Phys-Mem-v5/eval_videos/physmem_v5/v5_phys.mp4",
+                "video_results": 0.8481923773133454
+            }
+        ]
+    ]
+}

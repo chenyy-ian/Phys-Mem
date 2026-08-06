@@ -1,0 +1,11 @@
+{
+    "imaging_quality": [
+        0.7607564749407818,
+        [
+            {
+                "video_path": "/home/chenyiyang/Phys-Mem-v5/eval_videos/orb/v5_orb.mp4",
+                "video_results": 76.07564749407818
+            }
+        ]
+    ]
+}

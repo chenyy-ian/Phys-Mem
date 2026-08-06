@@ -1,0 +1,11 @@
+{
+    "imaging_quality": [
+        0.7609673203762222,
+        [
+            {
+                "video_path": "/home/chenyiyang/Phys-Mem-v5/eval_videos/physmem_v5/v5_phys.mp4",
+                "video_results": 76.09673203762222
+            }
+        ]
+    ]
+}

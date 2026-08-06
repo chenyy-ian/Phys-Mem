@@ -1,0 +1,13 @@
+{
+    "background_consistency": [
+        0.9385104139311975,
+        [
+            {
+                "video_path": "/home/chenyiyang/Phys-Mem-v5/eval_videos/orb/v5_orb.mp4",
+                "video_results": 0.9385104139311975,
+                "video_sim": 446.73095703125,
+                "cnt_per_video": 476
+            }
+        ]
+    ]
+}

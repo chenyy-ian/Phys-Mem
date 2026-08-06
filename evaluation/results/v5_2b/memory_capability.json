@@ -1,0 +1,76 @@
+{
+  "per_run": [
+    {
+      "retrieve_count": 2,
+      "first_visit_hit_rate": 1.0,
+      "first_visit_hits": 2,
+      "retrieval_accuracy": 0.25,
+      "revisit_count": 8,
+      "loop_closure_count": 2,
+      "anchor_drift_mean": 2.1280557070097688,
+      "anchor_drift_max": 2.8984788894657014,
+      "anchor_drift_loco_mean": 2.4057572058473355
+    },
+    {
+      "retrieve_count": 2,
+      "first_visit_hit_rate": 1.0,
+      "first_visit_hits": 2,
+      "retrieval_accuracy": 0.25,
+      "revisit_count": 8,
+      "loop_closure_count": 2,
+      "anchor_drift_mean": 1.6098916953796363,
+      "anchor_drift_max": 2.8984788894657014,
+      "anchor_drift_loco_mean": 2.149842511972147
+    },
+    {
+      "retrieve_count": 2,
+      "first_visit_hit_rate": 1.0,
+      "first_visit_hits": 2,
+      "retrieval_accuracy": 0.25,
+      "revisit_count": 8,
+      "loop_closure_count": 2,
+      "anchor_drift_mean": 1.8712479795244576,
+      "anchor_drift_max": 2.5791097036590425,
+      "anchor_drift_loco_mean": 2.159396364038153
+    },
+    {
+      "retrieve_count": 2,
+      "first_visit_hit_rate": 1.0,
+      "first_visit_hits": 2,
+      "retrieval_accuracy": 0.25,
+      "revisit_count": 8,
+      "loop_closure_count": 2,
+      "anchor_drift_mean": 1.8712479795244576,
+      "anchor_drift_max": 2.5791097036590425,
+      "anchor_drift_loco_mean": 2.159396364038153
+    },
+    {
+      "retrieve_count": 2,
+      "first_visit_hit_rate": 1.0,
+      "first_visit_hits": 2,
+      "retrieval_accuracy": 0.25,
+      "revisit_count": 8,
+      "loop_closure_count": 2,
+      "anchor_drift_mean": 2.0179952523732068,
+      "anchor_drift_max": 2.8984788894657014,
+      "anchor_drift_loco_mean": 2.3072128691236626
+    }
+  ],
+  "mean": {
+    "retrieve_count": 2.0,
+    "first_visit_hit_rate": 1.0,
+    "first_visit_hits": 2.0,
+    "retrieval_accuracy": 0.25,
+    "revisit_count": 8.0,
+    "loop_closure_count": 2.0,
+    "anchor_drift_mean": 1.8996877227623052,
+    "anchor_drift_max": 2.770731215143038,
+    "anchor_drift_loco_mean": 2.2363210630038903
+  },
+  "memory_transition_stability": {
+    "total_frames": 37,
+    "full_agreement_frames": 8,
+    "window_agreement_rate": 0.21621621621621623,
+    "mean_pairwise_jaccard": 0.8174617274617274
+  }
+}

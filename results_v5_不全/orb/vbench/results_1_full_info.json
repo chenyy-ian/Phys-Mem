@@ -1,0 +1,11 @@
+[
+    {
+        "prompt_en": "v5_orb",
+        "dimension": [
+            "background_consistency"
+        ],
+        "video_list": [
+            "/home/chenyiyang/Phys-Mem-v5/eval_videos/orb/v5_orb.mp4"
+        ]
+    }
+]

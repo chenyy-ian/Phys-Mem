@@ -1,0 +1,11 @@
+{
+    "motion_smoothness": [
+        0.9733157017228404,
+        [
+            {
+                "video_path": "/home/chenyiyang/Phys-Mem-v5/eval_videos/orb/v5_orb.mp4",
+                "video_results": 0.9733157017228404
+            }
+        ]
+    ]
+}
